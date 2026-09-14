@@ -59,6 +59,12 @@ importers:
       '@axl/daemon':
         specifier: workspace:*
         version: link:../daemon
+      '@axl/extension-api':
+        specifier: workspace:*
+        version: link:../extensions/api
+      '@axl/extension-lounge':
+        specifier: workspace:*
+        version: link:../extensions/lounge
       '@axl/extension-prompts':
         specifier: workspace:*
         version: link:../extensions/prompts
@@ -117,6 +123,12 @@ importers:
       ajv:
         specifier: 8.20.0
         version: 8.20.0
+
+  packages/extensions/lounge:
+    dependencies:
+      '@axl/extension-api':
+        specifier: workspace:*
+        version: link:../api
 
   packages/extensions/mcp:
     dependencies:

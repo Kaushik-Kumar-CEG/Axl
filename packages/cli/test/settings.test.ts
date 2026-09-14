@@ -61,6 +61,7 @@ test("persists and restores session defaults atomically", async (context) => {
     diffLayout: "split" as const,
     workspaceReview: true,
     imageDisplay: "metadata" as const,
+    loungeEnabled: false,
   };
 
   await saveTuiSettings(path, settings);
@@ -109,6 +110,8 @@ test("uses empty defaults only for a missing file and rejects invalid settings",
     '{"version":1,"compaction":{"modelOverrides":{"openai/gpt-5":{"enabled":"yes"}}}}\n',
   );
   await assert.rejects(loadTuiSettings(path), /enabled/);
+  await writeFile(path, '{"version":1,"loungeEnabled":"yes"}\n');
+  await assert.rejects(loadTuiSettings(path), /loungeEnabled must be a boolean/);
 });
 
 test("expanded tool inspection does not become the next startup default", async (context) => {
