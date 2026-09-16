@@ -16,6 +16,7 @@ path = [
   "packages/ai/tsconfig.json",
   "packages/daemon/tsconfig.build.json",
   "packages/daemon/tsconfig.json",
+  "packages/extensions/lounge/data/chess/provenance.json",
   "packages/extensions/lounge/data/codeword/provenance.json",
   "packages/extensions/lounge/data/sudoku/provenance.json",
   "packages/extensions/lounge/package.json",
@@ -155,6 +156,14 @@ SPDX-FileCopyrightText = [
   "2026 Kaushik Kumar",
 ]
 SPDX-License-Identifier = "LicenseRef-ESDB"
+
+[[annotations]]
+path = [
+  "packages/extensions/lounge/data/chess/puzzles.csv",
+  "packages/extensions/lounge/data/chess/review.csv",
+]
+SPDX-FileCopyrightText = "2026 Lichess contributors"
+SPDX-License-Identifier = "CC0-1.0"
 
 [[annotations]]
 path = ["packages/ai/catalog/sources/models-dev/**"]
