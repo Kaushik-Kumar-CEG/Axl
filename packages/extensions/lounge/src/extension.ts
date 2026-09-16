@@ -11,7 +11,7 @@ export interface LoungeExtensionOptions {
   readonly sudokuSeed?: () => number;
 }
 
-/** Creates a lightweight definition that loads Codeword data only after activation. */
+/** Creates a lightweight definition that loads Lounge data only after activation. */
 export function createLoungeExtension(options: LoungeExtensionOptions = {}): TerminalExtension {
   return {
     manifest: {
