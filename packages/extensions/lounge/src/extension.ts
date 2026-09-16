@@ -21,16 +21,38 @@ export function createLoungeExtension(options: LoungeExtensionOptions = {}): Ter
     },
     async activate(api) {
       const [
+        { chessPuzzleActivity },
+        { CHESS_PUZZLES, CHESS_PUZZLE_SET_REVISION, CHESS_PUZZLE_THEMES },
         { codewordActivity },
         { game2048Activity },
         { minesweeperActivity },
         { sudokuActivity },
       ] = await Promise.all([
+        import("./chess-puzzle-activity.ts"),
+        import("./chess-puzzles.generated.ts"),
         import("./codeword-activity.ts"),
         import("./game-2048-activity.ts"),
         import("./minesweeper-activity.ts"),
         import("./sudoku-activity.ts"),
       ]);
+      let previousChessSeed = Date.now() - 1;
+      const chessPracticeSeed =
+        options.practiceSeed ??
+        (() => {
+          previousChessSeed = Math.max(Date.now(), previousChessSeed + 1);
+          return previousChessSeed;
+        });
+      api.registerActivity(
+        chessPuzzleActivity({
+          catalog: Object.freeze({
+            revision: CHESS_PUZZLE_SET_REVISION,
+            puzzles: CHESS_PUZZLES,
+          }),
+          themes: CHESS_PUZZLE_THEMES,
+          utcDate: options.utcDate ?? (() => new Date().toISOString().slice(0, 10)),
+          practiceSeed: chessPracticeSeed,
+        }),
+      );
       api.registerActivity(codewordActivity(options));
       api.registerActivity(
         game2048Activity(options.game2048Seed === undefined ? {} : { seed: options.game2048Seed }),

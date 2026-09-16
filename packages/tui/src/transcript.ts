@@ -5,7 +5,11 @@
 // SPDX-FileCopyrightText: 2026 Shaan Narendran
 // SPDX-License-Identifier: Apache-2.0
 
-import type { TerminalExtensionHost, TerminalLine } from "@axl/extension-api";
+import type {
+  ActivityBackgroundStyle,
+  TerminalExtensionHost,
+  TerminalLine,
+} from "@axl/extension-api";
 import type { BlobReference, CanonicalEvent } from "@axl/protocol";
 import {
   type CanonicalPresentationItem,
@@ -30,6 +34,7 @@ export interface Palette {
   text?(text: string): string;
   userMessage?(text: string): string;
   selection?(text: string): string;
+  activityBackground?(role: ActivityBackgroundStyle, text: string): string;
   searchMatch?(text: string): string;
   searchCurrent?(text: string): string;
   toolBackground?(text: string): string;
@@ -67,6 +72,7 @@ export const PLAIN_PALETTE: Palette = {
   accent: (text) => text,
   error: (text) => text,
   bold: (text) => text,
+  activityBackground: (_role, text) => text,
 };
 
 const EMPTY_ROWS: readonly string[] = Object.freeze([]);
@@ -83,6 +89,23 @@ export const ANSI_PALETTE: Palette = {
   border: (text) => `\x1b[90m${text}\x1b[39m`,
   success: (text) => `\x1b[32m${text}\x1b[39m`,
   warning: (text) => `\x1b[33m${text}\x1b[39m`,
+  activityBackground: (role, text) => {
+    const color =
+      role === "surface"
+        ? 238
+        : role === "surfaceAlternate"
+          ? 241
+          : role === "accent"
+            ? 24
+            : role === "selection"
+              ? 25
+              : role === "success"
+                ? 22
+                : role === "warning"
+                  ? 58
+                  : 52;
+    return `\x1b[48;5;${color}m${text}\x1b[49m`;
+  },
   diffAdded: (text) => `\x1b[32m${text}\x1b[39m`,
   diffRemoved: (text) => `\x1b[31m${text}\x1b[39m`,
   diffContext: (text) => `\x1b[2m${text}\x1b[22m`,

@@ -109,22 +109,26 @@ type PointerLayout =
       readonly footer: string;
     };
 
-function style(span: ActivitySpan, palette: Palette): string {
+function style(span: ActivitySpan, palette: Palette, textOnly: boolean): string {
   const text = sanitizeTerminalText(span.text);
+  const surfaced =
+    span.background === undefined || textOnly
+      ? text
+      : (palette.activityBackground?.(span.background, text) ?? text);
   const styled =
     span.style === "muted"
-      ? palette.dim(text)
+      ? palette.dim(surfaced)
       : span.style === "accent"
-        ? palette.accent(text)
+        ? palette.accent(surfaced)
         : span.style === "success"
-          ? (palette.success ?? palette.accent)(text)
+          ? (palette.success ?? palette.accent)(surfaced)
           : span.style === "warning"
-            ? (palette.warning ?? palette.accent)(text)
+            ? (palette.warning ?? palette.accent)(surfaced)
             : span.style === "error"
-              ? palette.error(text)
+              ? palette.error(surfaced)
               : span.style === "selection"
-                ? (palette.selection ?? palette.bold ?? palette.accent)(text)
-                : (palette.text ?? ((value: string) => value))(text);
+                ? (palette.selection ?? palette.bold ?? palette.accent)(surfaced)
+                : (palette.text ?? ((value: string) => value))(surfaced);
   if (span.emphasis === "strong") return (palette.bold ?? palette.accent)(styled);
   if (span.emphasis === "reverse")
     return (palette.selection ?? palette.bold ?? palette.accent)(styled);
@@ -430,7 +434,28 @@ export class ActivitySurfaceHost {
       index = decoded.next;
       const encodedKey = data.slice(start, index);
       const key = decoded.key;
-      if (key.kind === "escape" || (key.kind === "ctrl" && key.char === "c")) {
+      if (key.kind === "escape") {
+        if (
+          this.stateValue === "active" &&
+          !this.monitorFocused &&
+          this.instance?.state === "active"
+        ) {
+          try {
+            const consumed = this.instance.handleInput(
+              this.instance.epoch,
+              inputFromEditorKey(key),
+            );
+            if (consumed) continue;
+          } catch (error) {
+            this.report(error);
+            this.suspend("attention");
+            return;
+          }
+        }
+        this.close();
+        return;
+      }
+      if (key.kind === "ctrl" && key.char === "c") {
         this.close();
         return;
       }
@@ -606,7 +631,13 @@ export class ActivitySurfaceHost {
       }
     }
     const effectiveFrame: ActivityFrame = frame ?? { lines: [] };
-    const renderedActivityRows = this.renderFrame(effectiveFrame, gameWidth, gameHeight, palette);
+    const renderedActivityRows = this.renderFrame(
+      effectiveFrame,
+      gameWidth,
+      gameHeight,
+      palette,
+      this.options.presentation().textOnly,
+    );
     const topPadding = Math.max(0, Math.floor((gameHeight - renderedActivityRows.length) / 2));
     const activityRows = [
       ...Array.from({ length: topPadding }, () => fit("", gameWidth)),
@@ -757,10 +788,13 @@ export class ActivitySurfaceHost {
     width: number,
     height: number,
     palette: Palette,
+    textOnly: boolean,
   ): string[] {
     return frame.lines
       .slice(0, height)
-      .map((line) => truncateToWidth(line.map((span) => style(span, palette)).join(""), width, ""));
+      .map((line) =>
+        truncateToWidth(line.map((span) => style(span, palette, textOnly)).join(""), width, ""),
+      );
   }
 
   private renderWidePicker(

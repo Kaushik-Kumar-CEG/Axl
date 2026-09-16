@@ -51,6 +51,11 @@ export {
   validateChessPuzzleUtcDate,
 } from "./chess-puzzle.ts";
 export {
+  type ChessPuzzleActivityOptions,
+  type ChessPuzzleThemeOption,
+  chessPuzzleActivity,
+} from "./chess-puzzle-activity.ts";
+export {
   CHESS_PUZZLE_MAX_COMPLETIONS,
   CHESS_PUZZLE_STORAGE_SCHEMA_VERSION,
   type ChessPuzzleCompletionRecord,
