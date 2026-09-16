@@ -296,8 +296,12 @@ test("a public activity renders, receives structured input, schedules, pauses, r
           create(createdContext) {
             activityContext = createdContext;
             return {
-              render: () => ({ lines: [[{ text: "ready", style: "success" }]] }),
-              handleInput: (input) => inputs.push(input.type),
+              render: () => ({
+                lines: [[{ text: "ready", style: "success", background: "surfaceAlternate" }]],
+              }),
+              handleInput: (input) => {
+                inputs.push(input.type);
+              },
               presentationChanged: () => {
                 presentationChanges += 1;
               },
@@ -348,7 +352,7 @@ test("a public activity renders, receives structured input, schedules, pauses, r
   const instance = host.createActivity("test.game", services);
   const firstEpoch = instance.epoch;
   assert.deepEqual(instance.render(firstEpoch, { width: 40, height: 18 }), {
-    lines: [[{ text: "ready", style: "success" }]],
+    lines: [[{ text: "ready", style: "success", background: "surfaceAlternate" }]],
   });
   instance.handleInput(firstEpoch, {
     type: "key",
@@ -431,6 +435,46 @@ test("a public activity renders, receives structured input, schedules, pauses, r
   await instance.dispose();
   await instance.dispose();
   assert.equal(disposals, 1);
+  await host.dispose();
+});
+
+test("activity input reports generic consumption without changing void handlers", async () => {
+  const host = new TerminalExtensionHost([
+    {
+      manifest: { id: "test.consume", name: "Consume", capabilities: ["terminal.activities"] },
+      activate(api) {
+        api.registerActivity({
+          id: "test.consume-game",
+          name: "Consume game",
+          description: "Consumes Escape generically",
+          category: "game",
+          create: () => ({
+            render: () => ({ lines: [] }),
+            handleInput: (input) => input.type === "key" && input.key === "escape",
+            pause: () => undefined,
+            resume: () => undefined,
+            serialize: () => undefined,
+            dispose: () => undefined,
+          }),
+        });
+      },
+    },
+  ]);
+  await host.activate();
+  const instance = host.createActivity("test.consume-game", activityServices());
+  assert.equal(instance.handleInput(instance.epoch, { type: "unknown" }), false);
+  assert.equal(
+    instance.handleInput(instance.epoch, {
+      type: "key",
+      key: "escape",
+      ctrl: false,
+      alt: false,
+      shift: false,
+      repeat: false,
+    }),
+    true,
+  );
+  await instance.dispose();
   await host.dispose();
 });
 
@@ -743,6 +787,45 @@ test("a duplicate activity activation preserves the existing owner", async () =>
   registerDuplicate = true;
   await assert.rejects(() => host.activateExtension("test.contender"), /already registered/);
   assert.equal(host.activities()[0]?.extensionId, "test.owner");
+  await host.dispose();
+});
+
+test("activity frames reject unknown semantic backgrounds", async () => {
+  const host = new TerminalExtensionHost([
+    {
+      manifest: {
+        id: "test.background",
+        name: "Background",
+        capabilities: ["terminal.activities"],
+      },
+      activate(api) {
+        api.registerActivity({
+          id: "test.bad-background",
+          name: "Bad background",
+          description: "Returns an invalid semantic background",
+          category: "game",
+          create: () => ({
+            render: () =>
+              ({
+                lines: [[{ text: "unsafe", style: "text", background: "chess-square" }]],
+              }) as never,
+            handleInput: () => undefined,
+            pause: () => undefined,
+            resume: () => undefined,
+            serialize: () => undefined,
+            dispose: () => undefined,
+          }),
+        });
+      },
+    },
+  ]);
+  await host.activate();
+  const instance = host.createActivity("test.bad-background", activityServices());
+  assert.throws(
+    () => instance.render(instance.epoch, { width: 40, height: 18 }),
+    /invalid background/,
+  );
+  await instance.dispose();
   await host.dispose();
 });
 

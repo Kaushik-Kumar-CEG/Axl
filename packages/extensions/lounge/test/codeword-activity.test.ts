@@ -184,6 +184,7 @@ test("the Lounge extension registers its games through the public activity API",
   assert.deepEqual(
     host.activities().map(({ id, name, category }) => ({ id, name, category })),
     [
+      { id: "axl.lounge.chess-puzzles", name: "Chess Puzzles", category: "game" },
       { id: "axl.lounge.codeword", name: "Wordle", category: "game" },
       { id: "axl.lounge.2048", name: "2048", category: "game" },
       { id: "axl.lounge.minesweeper", name: "Minesweeper", category: "game" },

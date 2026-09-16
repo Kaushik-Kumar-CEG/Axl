@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  type ActivityBackgroundStyle,
   type ActivityInput,
   type TerminalExtension,
   TerminalExtensionHost,
@@ -15,7 +16,8 @@ import { type ActivityMonitorSnapshot, ActivitySurfaceHost } from "../src/activi
 import { decodeOneKey } from "../src/editor.ts";
 import { AttentionOverlaySlot, type Overlay, OverlayStack } from "../src/overlay.ts";
 import { stripAnsi, visibleWidth } from "../src/render.ts";
-import { PLAIN_PALETTE } from "../src/transcript.ts";
+import { THEME_DEFINITIONS } from "../src/themes.ts";
+import { PLAIN_PALETTE, type Palette } from "../src/transcript.ts";
 
 function overlay(name: string, events: string[]): Overlay {
   return {
@@ -194,6 +196,133 @@ test("activity surface owns picker, input, monitor focus, and suspension", async
   await host.dispose();
 });
 
+test("activity surface composes semantic foregrounds and backgrounds", async () => {
+  let textOnly = false;
+  const host = new TerminalExtensionHost([
+    {
+      manifest: {
+        id: "test.backgrounds",
+        name: "Backgrounds",
+        capabilities: ["terminal.activities"],
+      },
+      activate(api) {
+        api.registerActivity({
+          id: "test.background-game",
+          name: "Background Game",
+          description: "Semantic background fixture",
+          category: "game",
+          create: () => ({
+            render: () => ({
+              lines: [[{ text: "CELL", style: "error", background: "surfaceAlternate" }]],
+            }),
+            handleInput: () => undefined,
+            pause: () => undefined,
+            resume: () => undefined,
+            serialize: () => undefined,
+            dispose: () => undefined,
+          }),
+        });
+      },
+    },
+  ]);
+  await host.activate();
+  const palette: Palette = {
+    dim: (value) => value,
+    accent: (value) => value,
+    error: (value) => `<fg>${value}</fg>`,
+    activityBackground: (role, value) => `<bg:${role}>${value}</bg>`,
+  };
+  const surface = new ActivitySurfaceHost({
+    host,
+    palette: () => palette,
+    invalidate: () => undefined,
+    monitor,
+    presentation: () => ({ reducedMotion: false, textOnly }),
+    returnToTranscript: () => undefined,
+    returnToEditor: () => undefined,
+    openWorkspaceReview: () => undefined,
+    reportError: (error) => assert.fail(error.message),
+  });
+  surface.open("test.background-game");
+  assert.ok(
+    surface
+      .render(80, 24)
+      .lines.some((row) => row.includes("<fg><bg:surfaceAlternate>CELL</bg></fg>")),
+  );
+  textOnly = true;
+  assert.ok(surface.render(80, 24).lines.some((row) => row.includes("<fg>CELL</fg>")));
+  assert.equal(
+    surface.render(80, 24).lines.some((row) => row.includes("<bg:")),
+    false,
+  );
+  const backgrounds: readonly ActivityBackgroundStyle[] = [
+    "surface",
+    "surfaceAlternate",
+    "accent",
+    "selection",
+    "success",
+    "warning",
+    "error",
+  ];
+  for (const definition of THEME_DEFINITIONS) {
+    for (const background of backgrounds) {
+      const rendered = definition.palette.activityBackground?.(background, "CELL") ?? "CELL";
+      assert.equal(stripAnsi(rendered), "CELL", `${definition.id}/${background}`);
+    }
+  }
+  await surface.dispose();
+  await host.dispose();
+});
+
+test("activity surface offers Escape to the focused activity before closing", async () => {
+  let localOpen = true;
+  const host = new TerminalExtensionHost([
+    {
+      manifest: { id: "test.escape", name: "Escape", capabilities: ["terminal.activities"] },
+      activate(api) {
+        api.registerActivity({
+          id: "test.escape-game",
+          name: "Escape Game",
+          description: "Consumes one local Escape",
+          category: "game",
+          create: () => ({
+            render: () => ({ lines: [] }),
+            handleInput: (input) => {
+              if (input.type !== "key" || input.key !== "escape" || !localOpen) return false;
+              localOpen = false;
+              return true;
+            },
+            pause: () => undefined,
+            resume: () => undefined,
+            serialize: () => undefined,
+            dispose: () => undefined,
+          }),
+        });
+      },
+    },
+  ]);
+  await host.activate();
+  const surface = new ActivitySurfaceHost({
+    host,
+    palette: () => PLAIN_PALETTE,
+    invalidate: () => undefined,
+    monitor,
+    presentation: () => ({ reducedMotion: false, textOnly: false }),
+    returnToTranscript: () => undefined,
+    returnToEditor: () => undefined,
+    openWorkspaceReview: () => undefined,
+    reportError: (error) => assert.fail(error.message),
+  });
+  surface.open("test.escape-game");
+  surface.render(80, 24);
+  surface.handleInput("\x1b", decodeOneKey);
+  assert.equal(surface.state, "active");
+  surface.handleInput("\x1b", decodeOneKey);
+  assert.equal(surface.state, "closed");
+  await surface.dispose();
+  await host.dispose();
+});
+
 test("activity surface translates mouse coordinates and owns capture lifecycle", async () => {
   const inputs: ActivityInput[] = [];
   const capture: boolean[] = [];
@@ -209,7 +338,9 @@ test("activity surface translates mouse coordinates and owns capture lifecycle",
           mouse: true,
           create: () => ({
             render: () => ({ lines: [[{ text: "MOUSE BOARD", style: "text" }]] }),
-            handleInput: (input) => inputs.push(input),
+            handleInput: (input) => {
+              inputs.push(input);
+            },
             pause: () => undefined,
             resume: () => undefined,
             serialize: () => undefined,

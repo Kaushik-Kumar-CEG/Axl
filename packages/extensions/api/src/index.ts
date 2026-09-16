@@ -111,9 +111,19 @@ export type ActivityStyle =
   | "error"
   | "selection";
 
+export type ActivityBackgroundStyle =
+  | "surface"
+  | "surfaceAlternate"
+  | "accent"
+  | "selection"
+  | "success"
+  | "warning"
+  | "error";
+
 export interface ActivitySpan {
   readonly text: string;
   readonly style: ActivityStyle;
+  readonly background?: ActivityBackgroundStyle;
   readonly emphasis?: "none" | "strong" | "reverse";
 }
 
@@ -258,7 +268,9 @@ export interface ActivityContext {
 
 export interface TerminalActivityInstance {
   render(viewport: ActivityViewport): ActivityFrame;
-  handleInput(input: ActivityInput): void;
+  /** Return true when the activity consumed an input that the host may otherwise handle. */
+  // biome-ignore lint/suspicious/noConfusingVoidType: void preserves source compatibility for existing handlers.
+  handleInput(input: ActivityInput): boolean | void;
   presentationChanged?(): void;
   pause(reason: ActivityPauseReason): void;
   resume(): void;
@@ -295,7 +307,7 @@ export interface HostedActivityInstance {
   readonly epoch: number;
   readonly state: "active" | "paused" | "disposed";
   render(epoch: number, viewport: ActivityViewport): ActivityFrame;
-  handleInput(epoch: number, input: ActivityInput): void;
+  handleInput(epoch: number, input: ActivityInput): boolean;
   presentationChanged(epoch: number): void;
   pause(epoch: number, reason: ActivityPauseReason): void;
   resume(epoch: number): void;
@@ -589,6 +601,15 @@ function validateFrame(frame: ActivityFrame, viewport: ActivityViewport): Activi
     "error",
     "selection",
   ]);
+  const backgrounds = new Set<ActivityBackgroundStyle>([
+    "surface",
+    "surfaceAlternate",
+    "accent",
+    "selection",
+    "success",
+    "warning",
+    "error",
+  ]);
   for (const line of frame.lines) {
     if (!Array.isArray(line))
       throw new ActivityContractError("Activity frame lines must contain span arrays");
@@ -596,6 +617,9 @@ function validateFrame(frame: ActivityFrame, viewport: ActivityViewport): Activi
     for (const span of line) {
       if (typeof span.text !== "string" || !styles.has(span.style)) {
         throw new ActivityContractError("Activity frame contains an invalid span");
+      }
+      if (span.background !== undefined && !backgrounds.has(span.background)) {
+        throw new ActivityContractError("Activity frame contains an invalid background");
       }
       if (span.emphasis !== undefined && !["none", "strong", "reverse"].includes(span.emphasis)) {
         throw new ActivityContractError("Activity frame contains invalid emphasis");
@@ -851,7 +875,7 @@ class HostedActivity implements HostedActivityInstance {
     return frame;
   }
 
-  handleInput(epoch: number, input: ActivityInput): void {
+  handleInput(epoch: number, input: ActivityInput): boolean {
     this.assertEpoch(epoch, "input");
     validateInput(input);
     if (input.type === "mouse" && !this.mouseEnabled) {
@@ -865,7 +889,7 @@ class HostedActivity implements HostedActivityInstance {
     ) {
       throw new ActivityContractError("Activity mouse position is outside its rendered viewport");
     }
-    this.requireInstance().handleInput(Object.freeze({ ...input }));
+    return this.requireInstance().handleInput(Object.freeze({ ...input })) === true;
   }
 
   presentationChanged(epoch: number): void {
