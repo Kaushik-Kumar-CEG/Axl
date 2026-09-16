@@ -13,6 +13,12 @@ import {
   TerminalExtensionHost,
 } from "@axl/extension-api";
 
+import { chessPuzzleActivity } from "../src/chess-puzzle-activity.ts";
+import {
+  CHESS_PUZZLES,
+  CHESS_PUZZLE_SET_REVISION,
+  CHESS_PUZZLE_THEMES,
+} from "../src/chess-puzzles.generated.ts";
 import { codewordActivity } from "../src/codeword-activity.ts";
 import { createLoungeExtension } from "../src/extension.ts";
 import { game2048Activity } from "../src/game-2048-activity.ts";
@@ -173,6 +179,42 @@ const inputSudokuP95Ms = percentile(inputSudokuSamples, 0.95);
 const activeSudokuStateBytes = Buffer.byteLength(JSON.stringify(inputSudokuInstance.serialize()));
 await inputSudokuInstance.dispose();
 
+const activityChess = chessPuzzleActivity({
+  catalog: Object.freeze({ revision: CHESS_PUZZLE_SET_REVISION, puzzles: CHESS_PUZZLES }),
+  themes: CHESS_PUZZLE_THEMES,
+  utcDate: () => "2026-09-12",
+  practiceSeed: () => 42,
+});
+const renderChessResults = WIDTHS.map((width) => {
+  const instance = activityChess.create(directContext());
+  const viewport =
+    width === 40
+      ? { width: 40, height: 22 }
+      : width === 80
+        ? { width: 80, height: 22 }
+        : { width: 54, height: 28 };
+  instance.render(viewport);
+  const samples: number[] = [];
+  for (let index = 0; index < RENDER_SAMPLES; index += 1) {
+    const started = performance.now();
+    instance.render(viewport);
+    samples.push(performance.now() - started);
+  }
+  return { width, activityWidth: viewport.width, p95Ms: percentile(samples, 0.95) };
+});
+const inputChessInstance = activityChess.create(directContext());
+inputChessInstance.render({ width: 54, height: 28 });
+const inputChessSamples: number[] = [];
+const chessKeys = ["left", "up", "right", "down", "h", "j", "k", "l"] as const;
+for (let index = 0; index < INPUT_SAMPLES; index += 1) {
+  const started = performance.now();
+  inputChessInstance.handleInput(key(chessKeys[index % chessKeys.length] as string));
+  inputChessSamples.push(performance.now() - started);
+}
+const inputChessP95Ms = percentile(inputChessSamples, 0.95);
+const activeChessStateBytes = Buffer.byteLength(JSON.stringify(inputChessInstance.serialize()));
+await inputChessInstance.dispose();
+
 const hostServices: ActivityHostServices = {
   now: () => performance.now(),
   schedule: () => () => undefined,
@@ -197,6 +239,7 @@ for (let index = 0; index < CLEANUP_WARMUP_CYCLES; index += 1) {
   await cleanupHost.createActivity("axl.lounge.2048", hostServices).dispose();
   await cleanupHost.createActivity("axl.lounge.minesweeper", hostServices).dispose();
   await cleanupHost.createActivity("axl.lounge.sudoku", hostServices).dispose();
+  await cleanupHost.createActivity("axl.lounge.chess-puzzles", hostServices).dispose();
 }
 globalThis.gc?.();
 const heapBaselineBytes = process.memoryUsage().heapUsed;
@@ -207,6 +250,7 @@ for (let index = 0; index < CLEANUP_CYCLES; index += 1) {
     "axl.lounge.2048",
     "axl.lounge.minesweeper",
     "axl.lounge.sudoku",
+    "axl.lounge.chess-puzzles",
   ] as const) {
     const instance = cleanupHost.createActivity(activityId, hostServices);
     instance.pause(instance.epoch, "hidden");
@@ -308,6 +352,11 @@ const result = {
       inputP95Ms: inputSudokuP95Ms,
       activeStateBytes: activeSudokuStateBytes,
     },
+    chess: {
+      render: renderChessResults,
+      inputP95Ms: inputChessP95Ms,
+      activeStateBytes: activeChessStateBytes,
+    },
     cleanupMs,
     retainedHeapBytes,
     disabledHostBaselineMedianMs,
@@ -325,15 +374,18 @@ if (
   render2048Results.some(({ p95Ms }) => p95Ms >= 8) ||
   renderMinesweeperResults.some(({ p95Ms }) => p95Ms >= 8) ||
   renderSudokuResults.some(({ p95Ms }) => p95Ms >= 8) ||
+  renderChessResults.some(({ p95Ms }) => p95Ms >= 8) ||
   inputP95Ms >= 4 ||
   input2048P95Ms >= 4 ||
   inputMinesweeperP95Ms >= 4 ||
   inputSudokuP95Ms >= 4 ||
+  inputChessP95Ms >= 4 ||
   retainedHeapBytes >= 1024 * 1024 ||
   activeStateBytes >= 1024 * 1024 ||
   active2048StateBytes >= 1024 * 1024 ||
   activeMinesweeperStateBytes >= 1024 * 1024 ||
   activeSudokuStateBytes >= 1024 * 1024 ||
+  activeChessStateBytes >= 1024 * 1024 ||
   cliDisabledRegressionMs >= disabledBudgetMs
 ) {
   throw new Error("Lounge performance benchmark exceeded its deterministic budget");
