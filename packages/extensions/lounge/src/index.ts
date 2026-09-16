@@ -2,6 +2,29 @@
 // SPDX-License-Identifier: Apache-2.0
 
 export {
+  applyChessMove,
+  CHESS_START_FEN,
+  chessFen,
+  chessMoveToUci,
+  chessSquare,
+  chessSquareName,
+  chessStatus,
+  type ChessCastlingRights,
+  type ChessColor,
+  type ChessMove,
+  type ChessPiece,
+  type ChessPosition,
+  type ChessPromotion,
+  type ChessStatus,
+  isChessCheckmate,
+  isChessInCheck,
+  isChessSquareAttacked,
+  isChessStalemate,
+  legalChessMoves,
+  parseChessFen,
+  parseUciMove,
+} from "./chess.ts";
+export {
   CODEWORD_ACCEPTED_GUESSES,
   CODEWORD_ANSWERS,
   CODEWORD_DAILY_SELECTION_VERSION,
