@@ -19,7 +19,7 @@
     "dist"
   ],
   "scripts": {
-    "benchmark": "pnpm --filter @axl/extension-api build && node --expose-gc benchmark/codeword.ts",
+    "benchmark": "pnpm --filter @axl/extension-api build && node --expose-gc benchmark/lounge.ts",
     "build": "tsc -b tsconfig.build.json --force",
     "test": "pnpm --filter @axl/extension-api build && node --test test/*.test.ts",
     "typecheck": "tsc --noEmit"

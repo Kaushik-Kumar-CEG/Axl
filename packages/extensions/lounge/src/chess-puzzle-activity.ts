@@ -1171,6 +1171,7 @@ export function chessPuzzleActivity(options: ChessPuzzleActivityOptions): Termin
         void context.storage
           .read(context.signal)
           .then((stored) => {
+            if (!active) return;
             if (stored !== undefined) {
               revision = stored.revision;
               if (stored.schemaVersion !== CHESS_PUZZLE_STORAGE_SCHEMA_VERSION)
@@ -1203,7 +1204,8 @@ export function chessPuzzleActivity(options: ChessPuzzleActivityOptions): Termin
             invalidate();
           })
           .catch((error: unknown) => {
-            if (error instanceof ActivityStorageError && error.code === "aborted") return;
+            if (!active || (error instanceof ActivityStorageError && error.code === "aborted"))
+              return;
             feedback = error instanceof Error ? error.message : "Chess save cannot be read";
             canReset = revision !== null;
             panel = "storage-error";

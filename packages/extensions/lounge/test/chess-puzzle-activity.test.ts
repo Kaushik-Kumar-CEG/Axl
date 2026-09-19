@@ -71,6 +71,30 @@ class MemoryStorage implements ActivityStorage {
   }
 }
 
+class DeferredReadStorage extends MemoryStorage {
+  writes = 0;
+  private resolveRead: ((value: ActivityStoredValue | undefined) => void) | undefined;
+
+  override read(): Promise<ActivityStoredValue | undefined> {
+    return new Promise((resolve) => {
+      this.resolveRead = resolve;
+    });
+  }
+
+  override write(
+    expectedRevision: number | null,
+    schemaVersion: number,
+    value: JsonValue,
+  ): Promise<ActivityStoredValue> {
+    this.writes += 1;
+    return super.write(expectedRevision, schemaVersion, value);
+  }
+
+  release(value?: ActivityStoredValue): void {
+    this.resolveRead?.(value);
+  }
+}
+
 interface Scheduled {
   active: boolean;
   readonly delay: number;
@@ -886,6 +910,21 @@ test("difficulty, theme, mode, help, flip, and restart controls remain in-pane",
   assert.match(text(instance.render({ width: 80, height: 24 })), /START A NEW PUZZLE/);
   instance.handleInput(key("n"));
   assert.equal(instance.handleInput(key("escape")), false);
+});
+
+test("disposal prevents a late storage read from reviving activity work", async () => {
+  const storage = new DeferredReadStorage();
+  const context = fixture({ storage });
+  const instance = activity(context.value);
+
+  await instance.dispose();
+  storage.release();
+  await Promise.resolve();
+  await Promise.resolve();
+
+  assert.equal(storage.writes, 0);
+  assert.equal(context.scheduled.length, 0);
+  assert.equal(context.invalidations, 0);
 });
 
 test("presentation changes cancel pending work and apply an exact immediate reply", () => {
