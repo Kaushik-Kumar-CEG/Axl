@@ -68,6 +68,12 @@ test("strict FEN validation rejects malformed and incoherent positions", () => {
     ["4k3/8/8/8/8/8/4r3/4K3 b - - 0 1", /just moved/],
   ] as const;
   for (const [fen, pattern] of invalid) assert.throws(() => parseChessFen(fen), pattern, fen);
+
+  const repeatedCastlingRights = "K".repeat(100_000);
+  assert.throws(
+    () => parseChessFen(`4k3/8/8/8/8/8/8/4K3 w ${repeatedCastlingRights} - 0 1`),
+    /castling rights/,
+  );
 });
 
 test("UCI parsing and serialization support ordinary moves and all promotions", () => {
