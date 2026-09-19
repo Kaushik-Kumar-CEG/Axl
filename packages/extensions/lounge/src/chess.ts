@@ -194,8 +194,17 @@ function parseBoard(value: string): readonly (ChessPiece | null)[] {
 }
 
 function parseCastlingRights(value: string): ChessCastlingRights {
-  if (value !== "-" && !/^(?!.*(.).*\1)[KQkq]+$/u.test(value)) {
-    throw new TypeError("FEN castling rights are invalid");
+  if (value !== "-") {
+    const seen = new Set<string>();
+    if (value.length === 0 || value.length > 4) {
+      throw new TypeError("FEN castling rights are invalid");
+    }
+    for (const right of value) {
+      if (!"KQkq".includes(right) || seen.has(right)) {
+        throw new TypeError("FEN castling rights are invalid");
+      }
+      seen.add(right);
+    }
   }
   return freezeCastlingRights({
     whiteKingSide: value.includes("K"),
