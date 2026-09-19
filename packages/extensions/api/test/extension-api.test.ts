@@ -9,6 +9,7 @@ import {
   ACTIVITY_LIMITS,
   type ActivityContext,
   ActivityContractError,
+  type ActivityFrame,
   type ActivityHostServices,
   type ActivitySafeStatus,
   type ActivityStorage,
@@ -742,6 +743,82 @@ test("a duplicate activity activation preserves the existing owner", async () =>
   registerDuplicate = true;
   await assert.rejects(() => host.activateExtension("test.contender"), /already registered/);
   assert.equal(host.activities()[0]?.extensionId, "test.owner");
+  await host.dispose();
+});
+
+test("activity raster frames enforce pixels, palettes, and reserved placement", async () => {
+  let frame: ActivityFrame = {
+    lines: [[{ text: "fallback", style: "text" }], []],
+    images: [
+      {
+        format: "indexed",
+        width: 2,
+        height: 2,
+        palette: [
+          { red: 0, green: 0, blue: 0 },
+          { red: 255, green: 255, blue: 255 },
+        ],
+        pixels: Uint8Array.of(0, 1, 1, 0),
+        placement: { row: 0, column: 1, columns: 2, rows: 2 },
+        description: "test pixels",
+      },
+    ],
+  };
+  const host = new TerminalExtensionHost([
+    {
+      manifest: { id: "test.raster", name: "Raster", capabilities: ["terminal.activities"] },
+      activate(api) {
+        api.registerActivity({
+          id: "test.raster-game",
+          name: "Raster game",
+          description: "Validates generic indexed images",
+          category: "game",
+          create: () => ({
+            render: () => frame,
+            handleInput: () => undefined,
+            pause: () => undefined,
+            resume: () => undefined,
+            serialize: () => undefined,
+            dispose: () => undefined,
+          }),
+        });
+      },
+    },
+  ]);
+  await host.activate();
+  const instance = host.createActivity("test.raster-game", activityServices());
+  const validated = instance.render(instance.epoch, { width: 8, height: 4 });
+  assert.equal(validated.images?.length, 1);
+  (frame.images?.[0]?.pixels as Uint8Array)[0] = 1;
+  assert.equal(validated.images?.[0]?.pixels[0], 0, "host must snapshot mutable raster bytes");
+
+  frame = {
+    ...frame,
+    images: [
+      {
+        ...(frame.images?.[0] as NonNullable<ActivityFrame["images"]>[number]),
+        pixels: Uint8Array.of(0, 2, 1, 0),
+      },
+    ],
+  };
+  assert.throws(() => instance.render(instance.epoch, { width: 8, height: 4 }), /palette index/);
+
+  frame = {
+    lines: [[{ text: "fallback", style: "text" }]],
+    images: [
+      {
+        format: "indexed",
+        width: 1,
+        height: 1,
+        palette: [{ red: 0, green: 0, blue: 0 }],
+        pixels: Uint8Array.of(0),
+        placement: { row: 0, column: 0, columns: 1, rows: 2 },
+        description: "outside reserved rows",
+      },
+    ],
+  };
+  assert.throws(() => instance.render(instance.epoch, { width: 8, height: 4 }), /reserved frame/);
+  await instance.dispose();
   await host.dispose();
 });
 

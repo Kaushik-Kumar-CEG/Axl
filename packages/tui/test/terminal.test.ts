@@ -46,6 +46,7 @@ function session(input = new FakeInput(), output = new FakeOutput(), suspendProc
   const chunks: string[] = [];
   const errors: Error[] = [];
   let resizes = 0;
+  const cellSizes: Array<{ readonly width: number; readonly height: number } | undefined> = [];
   const terminal = new TerminalSession({
     input,
     output,
@@ -54,9 +55,10 @@ function session(input = new FakeInput(), output = new FakeOutput(), suspendProc
     onResize: () => {
       resizes += 1;
     },
+    onCellSize: (size) => cellSizes.push(size),
     ...(suspendProcess === undefined ? {} : { suspendProcess }),
   });
-  return { terminal, input, output, chunks, errors, resizes: () => resizes };
+  return { terminal, input, output, chunks, errors, cellSizes, resizes: () => resizes };
 }
 
 test("owns terminal modes and listeners for one idempotent lifecycle", () => {
@@ -69,7 +71,9 @@ test("owns terminal modes and listeners for one idempotent lifecycle", () => {
   assert.equal((state.output.writes[0] ?? "").includes("\x1b[?2004h"), true);
   assert.equal((state.output.writes[0] ?? "").includes("\x1b[?1004h"), true);
   assert.equal((state.output.writes[0] ?? "").includes("\x1b[>1u"), true);
+  assert.equal((state.output.writes[0] ?? "").includes("\x1b[16t"), true);
   assert.equal((state.output.writes[0] ?? "").includes("\x1b[>7u"), false);
+  assert.deepEqual(state.cellSizes, [undefined]);
 
   state.input.emit("data", "hello");
   state.output.emit("resize");
@@ -118,6 +122,27 @@ test("mouse capture enables dynamically and restores across suspend and stop", (
   assert.equal(virtual.mouseModes.has(1000), false);
   assert.equal(virtual.mouseModes.has(1002), false);
   assert.equal(virtual.mouseModes.has(1006), false);
+  state.terminal.stop();
+});
+
+test("consumes fragmented cell-size reports and refreshes metrics after resize", () => {
+  const state = session();
+  state.terminal.start();
+  state.input.emit("data", "\x1b[6;2");
+  state.input.emit("data", "4;12t");
+  state.input.emit("data", "hello");
+
+  assert.deepEqual(state.cellSizes, [undefined, { width: 12, height: 24 }]);
+  assert.deepEqual(state.chunks, ["hello"]);
+
+  state.output.emit("resize");
+  assert.deepEqual(state.cellSizes, [undefined, { width: 12, height: 24 }, undefined]);
+  assert.equal(state.output.writes.at(-1), "\x1b[16t");
+  assert.equal(state.resizes(), 1);
+
+  state.input.emit("data", "\x1b[6;0;12t");
+  assert.deepEqual(state.cellSizes, [undefined, { width: 12, height: 24 }, undefined, undefined]);
+  assert.deepEqual(state.chunks, ["hello"]);
   state.terminal.stop();
 });
 

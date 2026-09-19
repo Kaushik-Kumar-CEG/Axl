@@ -144,6 +144,7 @@ import {
 } from "./render.ts";
 import {
   assertInteractiveTerminal,
+  type TerminalCellSize,
   type TerminalInput,
   type TerminalOutput,
   TerminalSession,
@@ -802,6 +803,7 @@ export class AxlApp {
   private readonly observedActivityFiles = new Set<string>();
   private readonly toolGroupModes = new Map<string, ToolOutputDisplay>();
   private readonly terminal: TerminalSession;
+  private terminalCellSize: TerminalCellSize | undefined;
   private connectionState: "connected" | "reconnecting" | "detached" = "connected";
   private reconnectGeneration = 0;
   private reconnectAttempts = 0;
@@ -855,10 +857,11 @@ export class AxlApp {
     this.webFetchEnabled = options.webFetch ?? true;
     this.webSearchEnabled = options.webSearch ?? true;
     this.initialResumePending = options.initialResume ?? false;
+    const mediaCapabilities = options.mediaCapabilities ?? detectTerminalMedia();
     this.mediaCache = new MediaCache(
       () => this.client,
       sessionId,
-      options.mediaCapabilities ?? detectTerminalMedia(),
+      mediaCapabilities,
       () => this.imageDisplay,
       () => {
         if (!this.stopped && !this.hydrating) this.redraw();
@@ -917,6 +920,8 @@ export class AxlApp {
         reducedMotion: this.loungeReducedMotion,
         textOnly: this.loungeTextOnly,
       }),
+      rasterProtocol: mediaCapabilities.activityRaster ?? null,
+      terminalCellPixels: () => this.terminalCellSize,
       returnToTranscript: () => {
         if (this.tuiMode === "regular") this.repaintRegularTranscript();
         this.redraw(true);
@@ -991,6 +996,10 @@ export class AxlApp {
         this.redraw();
       },
       onResize: this.resizeListener,
+      onCellSize: (size) => {
+        this.terminalCellSize = size;
+        if (!this.stopped && !this.hydrating) this.redraw(true);
+      },
       ...(options.suspendProcess === undefined ? {} : { suspendProcess: options.suspendProcess }),
     });
     this.bindClient(options.client);
