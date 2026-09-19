@@ -7,7 +7,7 @@ Status: implemented terminal client feature
 
 ## Scope
 
-Axl Lounge provides four offline terminal games: Wordle, 2048, Minesweeper, and Sudoku. The Lounge package contains deterministic game rules and semantic activity renderers. It uses only the public `terminal.activities` and `terminal.activity-storage` extension capabilities.
+Axl Lounge provides five offline terminal games: Wordle, 2048, Minesweeper, Sudoku, and Chess Puzzles. The Lounge package contains deterministic game rules and semantic activity renderers. It uses only the public `terminal.activities` and `terminal.activity-storage` extension capabilities.
 
 ## Authority and ownership
 
@@ -33,7 +33,7 @@ Canonical interaction requests and host overlays have priority over Lounge input
 
 Callers supply dates, seeds, clocks, and scheduled callbacks. Game engines do not read global randomness or the system clock. Saves are versioned and validated before use. Concurrent active Wordle boards use compare-and-swap and never merge implicitly.
 
-Every game has a text-only semantic frame and non-color distinctions. Reduced-motion mode skips decorative timing. Keyboard navigation works with arrows and HJKL where applicable. Layouts preserve readable status and controls at supported compact, standard, and wide sizes.
+Every game has a text-only semantic frame and non-color distinctions. Reduced-motion mode skips decorative timing. Keyboard navigation works with arrows and HJKL where applicable. Layouts preserve readable status and controls at supported compact, standard, and wide sizes. Chess may provide a validated indexed raster alongside its semantic frame. The generic TUI raster layer owns terminal support detection, Sixel transport, calibrated cell placement, and pointer normalization. Missing support or cell metrics leaves the semantic frame active.
 
 Disabling or disposing Lounge removes registrations, listeners, timers, queued callbacks, and local host state. Games perform no networking and require no production dependency.
 
@@ -43,8 +43,9 @@ Disabling or disposing Lounge removes registrations, listeners, timers, queued c
 - **2048:** deterministic spawning, one merge per tile per move, exact one-move undo, win continuation, and game-over detection.
 - **Minesweeper:** delayed deterministic placement, safe first reveal and neighbors, three presets, flags, chords, viewport navigation, mouse input, and active-play timing.
 - **Sudoku:** twelve versioned unique-solution puzzles, three difficulties, notes, conflicts, hints, undo, and a traditional grid with strong 3×3 separators.
+- **Chess Puzzles:** 1,000 reviewed Lichess tactics, immutable legal move validation, deterministic Daily and Practice selection, exact sourced-line progression, keyboard and mouse controls, progressive hints, explicit promotion choice, and bounded statistics.
 
-Word data provenance and verification are documented in [`../../packages/extensions/lounge/data/codeword/README.md`](../../packages/extensions/lounge/data/codeword/README.md). Sudoku fixture generation is documented in [`../../packages/extensions/lounge/data/sudoku/README.md`](../../packages/extensions/lounge/data/sudoku/README.md).
+Word data provenance and verification are documented in [`../../packages/extensions/lounge/data/codeword/README.md`](../../packages/extensions/lounge/data/codeword/README.md). Sudoku fixture generation is documented in [`../../packages/extensions/lounge/data/sudoku/README.md`](../../packages/extensions/lounge/data/sudoku/README.md). Chess source, review, licensing, and reproducible generation are documented in [`../../packages/extensions/lounge/data/chess/README.md`](../../packages/extensions/lounge/data/chess/README.md).
 
 ## Verification
 
@@ -62,8 +63,8 @@ pnpm check:boundaries
 reuse lint
 ```
 
-Manual PTY review covers 40×24, 80×24, and 120×30 terminals. It checks responsive focus, the live wide Agent pane, keyboard and mouse behavior, reduced motion, text-only output, and cleanup. Sudoku review also covers movement, notes, hint confirmation, undo, and strong 3×3 separators.
+Manual PTY review covers 40×24, 80×24, and 120×30 terminals. It checks responsive focus, the live wide Agent pane, keyboard-only and mouse-only completion, calibrated raster pointer mapping, unsupported-terminal and missing-cell-metric fallback, reduced motion, text-only output, resize, reload, disable, pause, and disposal cleanup. Sudoku review also covers movement, notes, hint confirmation, undo, and strong 3×3 separators.
 
 ## Deferred work
 
-Chess puzzles, web UI game support, Productive mode, and Vibe mode remain deferred. They are not part of the implemented Lounge surface.
+Web UI game support, Productive mode, and Vibe mode remain deferred. They are not part of the implemented Lounge surface.
