@@ -117,8 +117,31 @@ export interface ActivitySpan {
   readonly emphasis?: "none" | "strong" | "reverse";
 }
 
+export interface ActivityRasterColor {
+  readonly red: number;
+  readonly green: number;
+  readonly blue: number;
+}
+
+export interface ActivityRasterImage {
+  readonly format: "indexed";
+  readonly width: number;
+  readonly height: number;
+  readonly palette: readonly ActivityRasterColor[];
+  readonly pixels: Uint8Array;
+  /** Cell region reserved by frame lines and replaced by the image when supported. */
+  readonly placement: {
+    readonly row: number;
+    readonly column: number;
+    readonly columns: number;
+    readonly rows: number;
+  };
+  readonly description: string;
+}
+
 export interface ActivityFrame {
   readonly lines: readonly (readonly ActivitySpan[])[];
+  readonly images?: readonly ActivityRasterImage[];
   readonly cursor?: { readonly row: number; readonly column: number };
   readonly announcement?: string;
 }
@@ -284,6 +307,12 @@ export const ACTIVITY_LIMITS = Object.freeze({
   maxFrameLines: 512,
   maxSpans: 4_096,
   maxFrameBytes: 256 * 1024,
+  maxRasterImages: 4,
+  maxRasterWidth: 512,
+  maxRasterHeight: 512,
+  maxRasterPixels: 512 * 512,
+  maxRasterPaletteColors: 16,
+  maxRasterDescriptionBytes: 256,
   maxAnnouncementBytes: 4 * 1024,
   maxStoredBytes: 256 * 1024,
   maxViewportWidth: 1_000,
@@ -578,6 +607,95 @@ function validateFrame(frame: ActivityFrame, viewport: ActivityViewport): Activi
     throw new ActivityContractError("Activity frame exceeds the span bound");
   if (bytes > ACTIVITY_LIMITS.maxFrameBytes)
     throw new ActivityContractError("Activity frame exceeds the text bound");
+  const validatedImages: ActivityRasterImage[] = [];
+  if (frame.images !== undefined) {
+    if (!Array.isArray(frame.images))
+      throw new ActivityContractError("Activity frame images must be an array");
+    if (frame.images.length > ACTIVITY_LIMITS.maxRasterImages)
+      throw new ActivityContractError("Activity frame exceeds the image bound");
+    let rasterPixels = 0;
+    for (const image of frame.images) {
+      if (image === null || typeof image !== "object" || image.format !== "indexed")
+        throw new ActivityContractError("Activity frame contains an invalid image");
+      if (
+        !Number.isSafeInteger(image.width) ||
+        !Number.isSafeInteger(image.height) ||
+        image.width <= 0 ||
+        image.height <= 0 ||
+        image.width > ACTIVITY_LIMITS.maxRasterWidth ||
+        image.height > ACTIVITY_LIMITS.maxRasterHeight
+      ) {
+        throw new ActivityContractError("Activity image dimensions are outside host bounds");
+      }
+      const pixelCount = image.width * image.height;
+      rasterPixels += pixelCount;
+      if (
+        !(image.pixels instanceof Uint8Array) ||
+        image.pixels.byteLength !== pixelCount ||
+        rasterPixels > ACTIVITY_LIMITS.maxRasterPixels
+      ) {
+        throw new ActivityContractError("Activity image pixels are invalid or oversized");
+      }
+      if (
+        !Array.isArray(image.palette) ||
+        image.palette.length === 0 ||
+        image.palette.length > ACTIVITY_LIMITS.maxRasterPaletteColors
+      ) {
+        throw new ActivityContractError("Activity image palette is invalid or oversized");
+      }
+      for (const color of image.palette) {
+        if (
+          color === null ||
+          typeof color !== "object" ||
+          ![color.red, color.green, color.blue].every(
+            (channel) => Number.isSafeInteger(channel) && channel >= 0 && channel <= 255,
+          )
+        ) {
+          throw new ActivityContractError("Activity image palette contains an invalid color");
+        }
+      }
+      for (const pixel of image.pixels) {
+        if (pixel >= image.palette.length)
+          throw new ActivityContractError("Activity image contains an invalid palette index");
+      }
+      const placement = image.placement;
+      if (
+        placement === null ||
+        typeof placement !== "object" ||
+        ![placement.row, placement.column].every(
+          (value) => Number.isSafeInteger(value) && value >= 0,
+        ) ||
+        ![placement.columns, placement.rows].every(
+          (value) => Number.isSafeInteger(value) && value > 0,
+        ) ||
+        placement.row + placement.rows > frame.lines.length ||
+        placement.row + placement.rows > viewport.height ||
+        placement.column + placement.columns > viewport.width
+      ) {
+        throw new ActivityContractError("Activity image placement is outside its reserved frame");
+      }
+      if (typeof image.description !== "string")
+        throw new ActivityContractError("Activity image description must be text");
+      assertBoundedText(
+        image.description,
+        "Activity image description",
+        ACTIVITY_LIMITS.maxRasterDescriptionBytes,
+      );
+      validatedImages.push(
+        Object.freeze({
+          format: image.format,
+          width: image.width,
+          height: image.height,
+          palette: Object.freeze(
+            image.palette.map((color: ActivityRasterColor) => Object.freeze({ ...color })),
+          ),
+          pixels: image.pixels.slice(),
+          placement: Object.freeze({ ...image.placement }),
+          description: image.description,
+        }),
+      );
+    }
+  }
   if (frame.announcement !== undefined) {
     assertBoundedText(
       frame.announcement,
@@ -597,7 +715,9 @@ function validateFrame(frame: ActivityFrame, viewport: ActivityViewport): Activi
       throw new ActivityContractError("Activity cursor is outside the viewport");
     }
   }
-  return frame;
+  return frame.images === undefined
+    ? frame
+    : Object.freeze({ ...frame, images: Object.freeze(validatedImages) });
 }
 
 function validateInput(input: ActivityInput): void {

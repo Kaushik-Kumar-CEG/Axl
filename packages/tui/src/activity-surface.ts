@@ -14,6 +14,15 @@ import type {
   TerminalExtensionHost,
 } from "@axl/extension-api";
 
+import {
+  type ActivityRasterProtocol,
+  activityRasterSequence,
+  normalizeActivityRasterPointer,
+  type PreparedActivityRaster,
+  prepareActivityRaster,
+  type TerminalCellPixels,
+  validTerminalCellPixels,
+} from "./activity-raster.ts";
 import type { EditorKey } from "./editor.ts";
 import { isMouseReport, type MouseInput, parseMouseInput } from "./fullscreen-input.ts";
 import { sanitizeTerminalText, truncateToWidth, visibleWidth } from "./render.ts";
@@ -55,6 +64,8 @@ export interface ActivitySurfaceOptions {
   readonly handleAgentInput?: (data: string) => boolean;
   readonly agentTabHint?: () => "complete" | "game";
   readonly presentation: () => ActivityPresentationPreferences;
+  readonly rasterProtocol?: ActivityRasterProtocol;
+  readonly terminalCellPixels?: () => TerminalCellPixels | undefined;
   readonly returnToTranscript: () => void;
   readonly returnToEditor: () => void;
   readonly openWorkspaceReview: () => void;
@@ -179,6 +190,7 @@ export class ActivitySurfaceHost {
   private lastFrame: ActivityFrame | undefined;
   private snapshotValue: JsonValue | undefined;
   private pointerLayout: PointerLayout | undefined;
+  private preparedRasters: readonly PreparedActivityRaster[] = [];
   private mouseCaptureEnabled = false;
   private disposed = false;
 
@@ -486,6 +498,7 @@ export class ActivitySurfaceHost {
     readonly cursor?: { readonly row: number; readonly column: number; readonly visible?: boolean };
   } {
     this.pointerLayout = undefined;
+    this.preparedRasters = [];
     if (!this.visible) return { lines: [] };
     const palette = this.options.palette();
     const monitor = this.options.monitor();
@@ -628,15 +641,17 @@ export class ActivitySurfaceHost {
         (this.monitorFocused ? palette.dim : palette.accent)(fit(gameTitle, gameWidth)),
         ...activityRows,
       ];
+      const lines = [
+        ...Array.from({ length: height - 1 }, (_, index) => {
+          const agent = agentRows[index] ?? "";
+          const game = gameRows[index] ?? "";
+          return `${fit(agent, agentWidth)} ${palette.dim("│")} ${fit(game, gameWidth)}`;
+        }),
+        footer,
+      ];
+      this.appendRasterImages(lines, effectiveFrame, width, agentWidth + 3, 1 + topPadding);
       return {
-        lines: [
-          ...Array.from({ length: height - 1 }, (_, index) => {
-            const agent = agentRows[index] ?? "";
-            const game = gameRows[index] ?? "";
-            return `${fit(agent, agentWidth)} ${palette.dim("│")} ${fit(game, gameWidth)}`;
-          }),
-          footer,
-        ],
+        lines,
         ...(this.monitorFocused && agent.cursor !== undefined
           ? { cursor: agent.cursor }
           : effectiveFrame.cursor === undefined || this.monitorFocused
@@ -684,11 +699,15 @@ export class ActivitySurfaceHost {
       gameHeight,
       footer: footerText,
     };
+    const lines = [
+      titleStyle(fit(title, width)),
+      ...completionBanner,
+      ...activityRows,
+      footer,
+    ].slice(0, height);
+    this.appendRasterImages(lines, effectiveFrame, width, 0, 1 + completionRows + topPadding);
     return {
-      lines: [titleStyle(fit(title, width)), ...completionBanner, ...activityRows, footer].slice(
-        0,
-        height,
-      ),
+      lines,
       ...(effectiveFrame.cursor === undefined
         ? {}
         : {
@@ -699,6 +718,38 @@ export class ActivitySurfaceHost {
             },
           }),
     };
+  }
+
+  private appendRasterImages(
+    lines: string[],
+    frame: ActivityFrame,
+    width: number,
+    gameLeft: number,
+    gameTop: number,
+  ): void {
+    const cellPixels = this.options.terminalCellPixels?.();
+    if (
+      this.options.presentation().textOnly ||
+      this.options.rasterProtocol == null ||
+      !validTerminalCellPixels(cellPixels) ||
+      frame.images === undefined ||
+      lines.length === 0
+    )
+      return;
+    const prepared = frame.images.map((image) => prepareActivityRaster(image, cellPixels));
+    this.preparedRasters = Object.freeze(prepared);
+    const lastRow = lines.length - 1;
+    let sequences = "";
+    for (const raster of prepared) {
+      const targetRow = gameTop + raster.row;
+      sequences += activityRasterSequence(
+        raster.image,
+        lastRow - targetRow,
+        gameLeft + raster.column,
+        this.options.rasterProtocol,
+      );
+    }
+    lines[lastRow] = `${fit(lines[lastRow] ?? "", width)}${sequences}`;
   }
 
   private renderFrame(
@@ -838,13 +889,24 @@ export class ActivitySurfaceHost {
       return;
     }
     if (phase === "press" && button === "left") this.setAgentFocused(false);
+    let row = mouse.row - layout.gameTop;
+    let column = mouse.column - layout.gameLeft;
+    for (const raster of this.preparedRasters) {
+      const normalized = normalizeActivityRasterPointer(raster, row, column);
+      if (normalized.kind === "margin") return;
+      if (normalized.kind === "image") {
+        row = normalized.row;
+        column = normalized.column;
+        break;
+      }
+    }
     try {
       this.instance.handleInput(this.instance.epoch, {
         type: "mouse",
         phase,
         button,
-        row: mouse.row - layout.gameTop,
-        column: mouse.column - layout.gameLeft,
+        row,
+        column,
         ctrl: (mouse.button & 16) !== 0,
         alt: (mouse.button & 8) !== 0,
         shift: (mouse.button & 4) !== 0,
