@@ -10,6 +10,7 @@ import {
   compactNumber,
   consumePendingPromptDeliveries,
   directShellInput,
+  isScrolledToBottom,
   matchesSession,
   messageBlobs,
   promptDeliveryShortcut,
@@ -250,6 +251,20 @@ test("compact number abbreviates thousands and keeps small values exact", () => 
   assert.equal(compactNumber(1000), "1.0k");
   assert.equal(compactNumber(1240), "1.2k");
   assert.equal(compactNumber(12_800), "13k");
+});
+
+test("scroll stickiness tolerates a small gap but not a scrolled-up reader", () => {
+  assert.equal(isScrolledToBottom({ scrollTop: 900, scrollHeight: 1000, clientHeight: 100 }), true);
+  assert.equal(isScrolledToBottom({ scrollTop: 850, scrollHeight: 1000, clientHeight: 100 }), true);
+  assert.equal(
+    isScrolledToBottom({ scrollTop: 835, scrollHeight: 1000, clientHeight: 100 }),
+    false,
+  );
+  assert.equal(isScrolledToBottom({ scrollTop: 0, scrollHeight: 1000, clientHeight: 100 }), false);
+  assert.equal(
+    isScrolledToBottom({ scrollTop: 0, scrollHeight: 1000, clientHeight: 100 }, 1000),
+    true,
+  );
 });
 
 test("workspace totals combine additions and deletions across files", () => {

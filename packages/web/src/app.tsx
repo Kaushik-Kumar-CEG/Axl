@@ -101,6 +101,7 @@ import {
   compactNumber,
   consumePendingPromptDeliveries,
   directShellInput,
+  isScrolledToBottom,
   matchesSession,
   messageBlobs,
   promptDeliveryShortcut,
@@ -304,6 +305,7 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
   const [transcriptQuery, setTranscriptQuery] = useState("");
   const [transcriptMatch, setTranscriptMatch] = useState(-1);
   const [transcriptNavigationVisible, setTranscriptNavigationVisible] = useState(false);
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false);
   const [activePromptId, setActivePromptId] = useState<string>();
   const [providerDirectory, setProviderDirectory] = useState<ProviderDirectoryState>({
     status: preview === undefined ? "idle" : "ready",
@@ -355,6 +357,9 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
   const fileRequest = useRef(0);
   const reviewRequest = useRef(0);
   const transcript = useRef<HTMLDivElement>(null);
+  // Auto-scroll only follows streaming output when the reader is already at the
+  // bottom, so scrolling up during a response is never hijacked.
+  const stickToBottom = useRef(true);
   const transcriptNavigationTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const actionNoticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const mobileMenu = useRef<HTMLButtonElement>(null);
@@ -439,6 +444,7 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
     setSessionLifecycleError(undefined);
     setCommandPaletteError(undefined);
     setBusy(true); setDirectOperation(undefined); setError(undefined); setTerminalError(undefined); setSidebarOpen(false); setMobileDock(false); setTranscriptSearchOpen(false); setUsageOpen(false); setControlCenter(undefined); setSessionLifecycleOpen(false); setRequeueOpen(false); setRequeueBusyItemId(undefined); setRequeueError(undefined); setNewSessionOpen(false); setTranscriptQuery(""); setActivePromptId(undefined); setWorkspaceReview(undefined); setWorkspaceBrowser({ path: "", entries: [], loaded: false }); setWorkspaceScope("working"); setWorkspaceCheckpointEnabled(undefined); setBrowserError(undefined); setReviewError(undefined); setBrowserLoading(false); setReviewLoading(false); setOpened(undefined); setConversation(EMPTY_STATE);
+    stickToBottom.current = true; setShowJumpToLatest(false);
     const previous = subscription.current;
     subscription.current = undefined;
     try {
@@ -628,7 +634,16 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
     providerLoginController.current?.abort();
   }, []);
 
-  useEffect(() => { transcript.current?.scrollTo({ top: transcript.current.scrollHeight }); }, [conversation.records.length, conversation.activity?.sequence]);
+  useEffect(() => {
+    const viewport = transcript.current;
+    if (viewport === null) return;
+    if (stickToBottom.current) {
+      viewport.scrollTo({ top: viewport.scrollHeight });
+      setShowJumpToLatest(false);
+    } else {
+      setShowJumpToLatest(true);
+    }
+  }, [conversation.records.length, conversation.activity?.sequence]);
   useEffect(() => {
     setPendingInputs((current) => consumePendingPromptDeliveries(current, conversation));
   }, [conversation.records]);
@@ -2103,9 +2118,20 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
     if (id !== undefined) jumpToMessage(id);
   };
 
+  const scrollToLatest = (): void => {
+    const viewport = transcript.current;
+    if (viewport === null) return;
+    stickToBottom.current = true;
+    viewport.scrollTo({ top: viewport.scrollHeight });
+    setShowJumpToLatest(false);
+  };
+
   const trackTranscriptScroll = (): void => {
     const viewport = transcript.current;
     if (viewport === null) return;
+    const atBottom = isScrolledToBottom(viewport);
+    stickToBottom.current = atBottom;
+    if (atBottom) setShowJumpToLatest(false);
     setTranscriptNavigationVisible(true);
     if (transcriptNavigationTimer.current !== undefined) clearTimeout(transcriptNavigationTimer.current);
     transcriptNavigationTimer.current = setTimeout(() => setTranscriptNavigationVisible(false), 1400);
@@ -2146,6 +2172,7 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
       <div className="thread" ref={transcript} onScroll={trackTranscriptScroll}>
         {opened ? <div className="thread-inner"><div className="thread-title"><h1>{currentTitle}</h1>{opened.profile !== "chat" && <p>{opened.cwd}</p>}</div><Suspense fallback={null}><Conversation conversation={conversation} searchQuery={transcriptQuery} resolveBlobUrl={(blob) => preview?.resolveBlobUrl?.(blob.sha256) ?? blobUrls.get(blob.sha256)} loadFullToolOutput={hasCapability("session.blob.read") && (preview?.readBlob !== undefined || client !== undefined) ? loadFullToolOutput : undefined} onRespondInteraction={hasCapability("session.interaction.respond") ? respondInteraction : undefined} onCopyMessage={(text) => void copyMessage(text)} onForkMessage={hasCapability("session.fork") ? (eventId) => void forkMessage(eventId) : undefined} /></Suspense>{conversation.activity && <article className="message assistant live"><span className="avatar axl">A</span><div><header><strong>Axl</strong><time>working</time></header>{conversation.activity.thinking && <details><summary>Thinking</summary><p>{conversation.activity.thinking}</p></details>}<p className="waiting-response">{conversation.activity.text || "Waiting for response"}<span className="waiting-dots" aria-hidden="true"><i></i><i></i><i></i></span></p></div></article>}</div> : <div className="empty"><span className="brand-mark large">A</span><h1>No session selected</h1><p>Resume a durable session or start one in this workspace.</p><button title={canCreate ? undefined : "Unavailable because session creation was not granted"} disabled={!canCreate} onClick={() => openNewSession()}>New session</button></div>}
       </div>
+      {opened && showJumpToLatest && <div className="jump-to-latest"><button type="button" onClick={scrollToLatest} aria-label="Jump to latest message"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v9m0 0 4-4m-4 4-4-4" /></svg>Jump to latest</button></div>}
       {promptBreakpoints.length > 1 && <nav className={`prompt-breakpoints${transcriptNavigationVisible || transcriptSearchOpen ? " visible" : ""}`} aria-label="Conversation prompts" onMouseEnter={() => { if (transcriptNavigationTimer.current !== undefined) clearTimeout(transcriptNavigationTimer.current); setTranscriptNavigationVisible(true); }} onMouseLeave={() => setTranscriptNavigationVisible(false)}>{promptBreakpoints.map((point) => <button type="button" key={point.id} className={point.id === activePromptId ? "active" : ""} title={point.text} onClick={() => jumpToMessage(point.id)}><span>{point.text}</span></button>)}</nav>}
       {!connected && <div className="connection-banner" role="status" aria-live="polite"><span>{connection === "disconnected" ? "Connection to the daemon was lost." : connection === "incompatible" ? "The browser and daemon versions are incompatible." : "Connecting to the daemon…"}</span>{connection === "disconnected" && client !== undefined && <button onClick={() => void reconnect()}>Reconnect</button>}</div>}
       {actionNotice && !error && <div className="action-notice" role="status">{actionNotice}</div>}
