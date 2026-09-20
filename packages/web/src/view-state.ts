@@ -2,11 +2,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type {
+  BlobReference,
   ConversationState,
   PromptDeliveryMode,
   SessionSummary,
   WorkspaceDiffResult,
 } from "@axl/sdk";
+
+export interface SessionStateHistoryEntry {
+  readonly id: string;
+  readonly label: string;
+  readonly detail: string;
+  readonly timestamp: number;
+}
 
 export interface PendingPromptDelivery {
   readonly id: number;
@@ -168,4 +176,123 @@ export function matchesSession(session: SessionSummary, query: string): boolean 
   return (
     needle === "" || `${sessionTitle(session)}\n${session.cwd}`.toLocaleLowerCase().includes(needle)
   );
+}
+
+/** Unique attachment blobs referenced by the conversation's user and assistant messages. */
+export function messageBlobs(conversation: ConversationState): readonly BlobReference[] {
+  const blobs = new Map<string, BlobReference>();
+  for (const record of conversation.records) {
+    if (
+      record.kind !== "event" ||
+      (record.event.type !== "user.message" && record.event.type !== "assistant.message")
+    )
+      continue;
+    for (const item of record.event.payload.content) {
+      if (item.type === "blob") blobs.set(item.blob.sha256, item.blob);
+    }
+  }
+  return [...blobs.values()];
+}
+
+/** The most recent configuration and lifecycle events, newest first, capped at 20. */
+export function sessionStateHistory(
+  conversation: ConversationState,
+): readonly SessionStateHistoryEntry[] {
+  const history: SessionStateHistoryEntry[] = [];
+  for (const record of conversation.records) {
+    if (record.kind !== "event") continue;
+    const event = record.event;
+    switch (event.type) {
+      case "session.created":
+        history.push({
+          id: event.id,
+          label: "Session created",
+          detail: event.payload.profile ?? "legacy",
+          timestamp: event.timestamp,
+        });
+        break;
+      case "session.resumed":
+        history.push({
+          id: event.id,
+          label: "Session resumed",
+          detail: "Runtime restored",
+          timestamp: event.timestamp,
+        });
+        break;
+      case "session.closed":
+        history.push({
+          id: event.id,
+          label: "Session closed",
+          detail: event.payload.reason,
+          timestamp: event.timestamp,
+        });
+        break;
+      case "config.provider":
+        history.push({
+          id: event.id,
+          label: "Provider",
+          detail: event.payload.providerId,
+          timestamp: event.timestamp,
+        });
+        break;
+      case "config.model":
+        history.push({
+          id: event.id,
+          label: "Model",
+          detail: event.payload.modelId,
+          timestamp: event.timestamp,
+        });
+        break;
+      case "config.profile":
+        history.push({
+          id: event.id,
+          label: "Profile",
+          detail: event.payload.profile,
+          timestamp: event.timestamp,
+        });
+        break;
+      case "config.thinking":
+        history.push({
+          id: event.id,
+          label: "Thinking",
+          detail: event.payload.clamped
+            ? `${event.payload.requested} → ${event.payload.effective}`
+            : event.payload.effective,
+          timestamp: event.timestamp,
+        });
+        break;
+      case "config.dialect":
+        history.push({
+          id: event.id,
+          label: "Tool dialect",
+          detail: `${event.payload.dialectId} · ${event.payload.reason.replaceAll("_", " ")}`,
+          timestamp: event.timestamp,
+        });
+        break;
+      case "config.tools":
+        history.push({
+          id: event.id,
+          label: "Web tools",
+          detail: `search ${event.payload.webSearch ? "on" : "off"} · fetch ${event.payload.webFetch ? "on" : "off"}`,
+          timestamp: event.timestamp,
+        });
+        break;
+      case "sandbox.configured":
+        history.push({
+          id: event.id,
+          label: "Sandbox",
+          detail: event.payload.enforced ? `${event.payload.provider} enforced` : "not enforced",
+          timestamp: event.timestamp,
+        });
+        break;
+      default:
+        break;
+    }
+  }
+  return history.slice(-20).reverse();
+}
+
+/** Human-friendly compact rendering of a token count (e.g. 12800 -> "13k"). */
+export function compactNumber(value: number): string {
+  return value >= 1000 ? `${(value / 1000).toFixed(value >= 10_000 ? 0 : 1)}k` : String(value);
 }
