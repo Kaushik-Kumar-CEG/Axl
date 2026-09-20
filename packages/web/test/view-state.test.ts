@@ -7,11 +7,14 @@ import test from "node:test";
 import type { ConversationState, SessionSummary } from "@axl/sdk";
 import { editDiffRows } from "@axl/ui";
 import {
+  compactNumber,
   consumePendingPromptDeliveries,
   directShellInput,
   matchesSession,
+  messageBlobs,
   promptDeliveryShortcut,
   restoreDraft,
+  sessionStateHistory,
   sessionTitle,
   sessionUsageStats,
   transcriptMessageMatches,
@@ -183,6 +186,70 @@ test("edit presentation keeps replacement order and line sides", () => {
     { kind: "add", text: "three", newLine: 2 },
   ]);
   assert.deepEqual(editDiffRows({ edits: [null, "bad"] }), []);
+});
+
+test("message blobs are collected once across user and assistant messages", () => {
+  const conversation = {
+    records: [
+      {
+        kind: "event",
+        event: {
+          type: "user.message",
+          payload: {
+            content: [
+              { type: "text", text: "see this" },
+              { type: "blob", blob: { sha256: "a", mediaType: "image/png" } },
+            ],
+          },
+        },
+      },
+      {
+        kind: "event",
+        event: {
+          type: "assistant.message",
+          payload: { content: [{ type: "blob", blob: { sha256: "a", mediaType: "image/png" } }] },
+        },
+      },
+      {
+        kind: "event",
+        event: {
+          type: "assistant.message",
+          payload: { content: [{ type: "blob", blob: { sha256: "b", mediaType: "image/png" } }] },
+        },
+      },
+      { kind: "activity" },
+    ],
+  } as unknown as ConversationState;
+
+  assert.deepEqual(
+    messageBlobs(conversation).map((blob) => blob.sha256),
+    ["a", "b"],
+  );
+});
+
+test("session state history keeps the last twenty configuration events newest first", () => {
+  const records = Array.from({ length: 25 }, (_value, index) => ({
+    kind: "event",
+    event: {
+      id: `model-${index}`,
+      type: "config.model",
+      timestamp: index,
+      payload: { modelId: `model-${index}` },
+    },
+  }));
+  const conversation = { records } as unknown as ConversationState;
+  const history = sessionStateHistory(conversation);
+  assert.equal(history.length, 20);
+  assert.equal(history[0]?.id, "model-24");
+  assert.equal(history[0]?.label, "Model");
+  assert.equal(history.at(-1)?.id, "model-5");
+});
+
+test("compact number abbreviates thousands and keeps small values exact", () => {
+  assert.equal(compactNumber(999), "999");
+  assert.equal(compactNumber(1000), "1.0k");
+  assert.equal(compactNumber(1240), "1.2k");
+  assert.equal(compactNumber(12_800), "13k");
 });
 
 test("workspace totals combine additions and deletions across files", () => {
