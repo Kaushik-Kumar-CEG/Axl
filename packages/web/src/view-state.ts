@@ -296,3 +296,22 @@ export function sessionStateHistory(
 export function compactNumber(value: number): string {
   return value >= 1000 ? `${(value / 1000).toFixed(value >= 10_000 ? 0 : 1)}k` : String(value);
 }
+
+/** Distance from the bottom, in pixels, that still counts as "at the bottom". */
+export const SCROLL_STICK_THRESHOLD = 64;
+
+/**
+ * Whether a scroll viewport is at (or within {@link SCROLL_STICK_THRESHOLD} of)
+ * the bottom. Used to decide whether streaming updates may auto-scroll without
+ * hijacking a reader who has scrolled up.
+ */
+export function isScrolledToBottom(
+  viewport: {
+    readonly scrollTop: number;
+    readonly scrollHeight: number;
+    readonly clientHeight: number;
+  },
+  threshold: number = SCROLL_STICK_THRESHOLD,
+): boolean {
+  return viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight <= threshold;
+}
