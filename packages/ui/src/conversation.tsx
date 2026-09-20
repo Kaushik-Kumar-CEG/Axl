@@ -23,6 +23,8 @@ import { InteractionCard, type InteractionResponder } from "./interaction.tsx";
 import { Markdown } from "./markdown.tsx";
 import { highlightLine, languageForPath } from "./syntax.ts";
 
+export { Markdown } from "./markdown.tsx";
+
 export function contentText(content: readonly { readonly type: string; readonly text?: string }[]): string {
   return content.filter((item) => item.type === "text").map((item) => item.text ?? "").join("");
 }

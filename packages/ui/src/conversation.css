@@ -205,6 +205,8 @@
 .delivery-state.failed strong { color:#dca0a5; }
 .live { opacity:.92; }
 .waiting-response { display:flex; align-items:baseline; gap:7px; }
+.streaming-text { margin:0; white-space:pre-wrap; overflow-wrap:anywhere; }
+.message.live .markdown + .waiting-response { margin-top:6px; }
 .waiting-dots { display:inline-flex; gap:3px; }
 .waiting-dots i { width:4px; height:4px; border-radius:50%; background:#9b9ba3; animation:waiting-dot 1.2s ease-in-out infinite; }
 .waiting-dots i:nth-child(2) { animation-delay:120ms; }
