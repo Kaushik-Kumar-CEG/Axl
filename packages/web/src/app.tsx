@@ -1016,7 +1016,9 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
       document.body.append(anchor);
       anchor.click();
       anchor.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 0);
+      // Some browsers (Firefox) have not started the download on the next tick;
+      // keep the object URL alive briefly so the blob is still readable.
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
       showActionNotice("Session export downloaded");
     } catch (cause) {
       setSessionLifecycleError(cause instanceof Error ? cause.message : "Could not export the session");
@@ -1108,11 +1110,9 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
         ? sessions.filter((session) => session.sessionId !== deletedSessionId)
         : await refreshSessions(client);
       setSessions(remaining);
-      if (client !== undefined && remaining[0] !== undefined) {
-        await openSession(client, remaining[0].sessionId);
-      } else {
-        showActionNotice("Session history deleted permanently");
-      }
+      // Return to the "No session selected" state instead of resuming another
+      // session (which could start a runtime the user did not ask for).
+      showActionNotice("Session history deleted permanently");
     } catch (cause) {
       openedSessionId.current = deletedSessionId;
       if (preview === undefined) retainBrowserSession(deletedSessionId);
@@ -2296,7 +2296,7 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
       <div className="brand"><span className="brand-mark">A</span><strong>Axl</strong><button ref={sidebarClose} className="sidebar-toggle" aria-label={sidebarOpen ? "Close sessions" : sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} onClick={toggleSidebar}><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2.5" width="12" height="11" rx="1.5" /><path d="M6 2.5v11m4.5-8L8 8l2.5 2.5" /></svg></button></div>
       <div className="workspace-actions"><span>Workspace</span><div>{canImport && <button aria-label="Import session" title="Import session" disabled={lifecycleBusy || sessionSwitching} onClick={() => artifactInput.current?.click()}><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v8m-3-3 3 3 3-3M3 13h10" /></svg></button>}<button aria-label="New session" title={canCreate ? "New session" : "Unavailable because session creation was not granted"} disabled={lifecycleBusy || sessionSwitching || !canCreate} onClick={() => openNewSession()}><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" /></svg></button></div><input ref={artifactInput} className="attachment-input" type="file" accept="application/json,.json" tabIndex={-1} aria-hidden="true" onChange={(event) => { const file = event.target.files?.[0]; if (file !== undefined) void importArtifact(file); }} /></div>
       <label className="search"><span aria-hidden="true">⌕</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Search sessions" placeholder="Search sessions" /></label>
-      <nav>{visibleSessions.map((session) => <button key={session.sessionId} aria-label={`${sessionTitle(session)}, ${session.runtime.state}`} className={session.sessionId === opened?.sessionId ? "session active" : "session"} onClick={() => client && void openSession(client, session.sessionId)}><span className={`session-icon ${session.runtime.state}`} aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M3 3.5h10v7H7l-3 2v-2H3z" /></svg></span><span><strong>{sessionTitle(session)}</strong><small>{session.cwd}</small></span></button>)}{visibleSessions.length === 0 && <p className="no-sessions">No matching sessions</p>}{sessionsCursor !== undefined && <button type="button" className="load-more-sessions" disabled={loadingMoreSessions} onClick={() => void loadMoreSessions()}>{loadingMoreSessions ? "Loading…" : "Load more sessions"}</button>}</nav>
+      <nav>{visibleSessions.map((session) => <button key={session.sessionId} aria-label={`${sessionTitle(session)}, ${session.runtime.state}`} className={session.sessionId === opened?.sessionId ? "session active" : "session"} onClick={() => client && void openSession(client, session.sessionId)}><span className={`session-icon ${session.runtime.state}`} aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M3 3.5h10v7H7l-3 2v-2H3z" /></svg></span><span><strong>{sessionTitle(session)}</strong><small>{session.profile === "chat" ? "Chat" : session.cwd}</small></span></button>)}{visibleSessions.length === 0 && <p className="no-sessions">No matching sessions</p>}{sessionsCursor !== undefined && <button type="button" className="load-more-sessions" disabled={loadingMoreSessions} onClick={() => void loadMoreSessions()}>{loadingMoreSessions ? "Loading…" : "Load more sessions"}</button>}</nav>
       <button className="daemon" aria-label={connection === "disconnected" && client !== undefined ? "Reconnect local daemon" : "Open settings"} aria-expanded={controlCenter !== undefined} onClick={() => { if (connection === "disconnected" && client !== undefined) { void reconnect(); return; } setUsageOpen(false); setTranscriptSearchOpen(false); setControlCenter("settings"); }}><span className={`daemon-status ${connection}`} aria-hidden="true"></span><span><strong>Local daemon</strong><small>{connection === "disconnected" && client === undefined ? "Connection unavailable" : DAEMON_CONNECTION_LABELS[connection]}</small></span>{connection === "disconnected" && client !== undefined ? <svg className="daemon-action" viewBox="0 0 16 16" aria-hidden="true"><path d="M13 6a5 5 0 1 0 .2 3M13 2.5V6H9.5" /></svg> : <svg className="daemon-action" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="2.25" /><path d="M8 1.75v1.5M8 12.75v1.5M1.75 8h1.5M12.75 8h1.5M3.6 3.6l1.05 1.05M11.35 11.35l1.05 1.05M12.4 3.6l-1.05 1.05M4.65 11.35 3.6 12.4" /></svg>}</button>
       {!sidebarCollapsed && <div className="panel-resizer left" role="separator" aria-orientation="vertical" aria-label="Resize session sidebar" aria-valuemin={200} aria-valuemax={420} aria-valuenow={sidebarWidth} aria-valuetext={`${sidebarWidth} pixels wide`} aria-keyshortcuts="ArrowLeft ArrowRight" tabIndex={0} onPointerDown={(event) => resizePanel("left", event)} onKeyDown={(event) => { if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); resizePanelBy("left", event.key === "ArrowLeft" ? -16 : 16); } }} />}
     </aside>
