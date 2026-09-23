@@ -130,6 +130,7 @@ export interface SessionSummary {
   readonly sandboxImage?: string;
   readonly runtime: SessionOpenResult["runtime"];
   readonly attachmentCount: number;
+  readonly profile?: SessionProfile;
 }
 
 export interface SessionListParams {
@@ -2495,6 +2496,7 @@ function parseSessionSummary(value: unknown, path: string): SessionSummary {
     "sandboxImage",
     "runtime",
     "attachmentCount",
+    "profile",
   ]);
   if (
     summary.securityMode !== undefined &&
@@ -2503,6 +2505,7 @@ function parseSessionSummary(value: unknown, path: string): SessionSummary {
   ) {
     throw new ProtocolValidationError(`${path}.securityMode`, "must be sandboxed or unsafe");
   }
+  const profile = sessionProfile(summary.profile, `${path}.profile`);
   return {
     sessionId: parseSessionId(summary.sessionId, `${path}.sessionId`),
     cwd: string(summary.cwd, `${path}.cwd`),
@@ -2532,6 +2535,7 @@ function parseSessionSummary(value: unknown, path: string): SessionSummary {
       : { sandboxImage: boundedString(summary.sandboxImage, `${path}.sandboxImage`, 1024) }),
     runtime: parseSessionRuntime(summary.runtime, `${path}.runtime`),
     attachmentCount: nonNegativeInteger(summary.attachmentCount, `${path}.attachmentCount`),
+    ...(profile === undefined ? {} : { profile }),
   };
 }
 

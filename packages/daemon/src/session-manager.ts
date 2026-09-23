@@ -341,6 +341,11 @@ function summarizeSession(events: readonly CanonicalEvent[]): StoredSessionSumma
   const firstUserMessage = messages[0];
   const lastUserMessage = messages.at(-1);
   const renamed = events.findLast((event) => event.type === "session.renamed");
+  const profileEvent = events.findLast((event) => event.type === "config.profile");
+  const profile =
+    profileEvent?.type === "config.profile"
+      ? profileEvent.payload.profile
+      : created.payload.profile;
   const sandbox = events.findLast((event) => event.type === "sandbox.configured");
   const image =
     sandbox?.type === "sandbox.configured" && typeof sandbox.payload.details?.image === "string"
@@ -365,6 +370,7 @@ function summarizeSession(events: readonly CanonicalEvent[]): StoredSessionSumma
           sandboxProvider: sandbox.payload.provider,
         }),
     ...(image === undefined ? {} : { sandboxImage: image }),
+    ...(profile === undefined ? {} : { profile }),
   };
 }
 
