@@ -139,6 +139,7 @@ const DEFAULT_LAYOUT: WebPreferences = {
   sidebarCollapsed: false,
   changesView: "files",
   panes: DEFAULT_PANES,
+  theme: "system",
 };
 const PREVIEW_LAYOUT_KEY = "axl.preview.layout";
 const DAEMON_CONNECTION_LABELS: Readonly<Record<ConnectionState, string>> = {
@@ -154,17 +155,6 @@ const validatePreviewProjectFolder = (path: string): Promise<{
   readonly valid: true;
   readonly path: string;
 }> => Promise.resolve({ valid: true, path });
-const WEB_THEME_KEY = "axl.web.theme";
-
-function storedWebTheme(): WebTheme {
-  try {
-    const value = localStorage.getItem(WEB_THEME_KEY);
-    return value === "light" || value === "dark" ? value : "system";
-  } catch {
-    return "system";
-  }
-}
-
 function previewLayout(): WebPreferences {
   try {
     return parseWebPreferences(JSON.parse(localStorage.getItem(PREVIEW_LAYOUT_KEY) ?? "null"));
@@ -299,7 +289,7 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
   const [sidebarWidth, setSidebarWidth] = useState(initialLayout.sidebarWidth);
   const [dockWidth, setDockWidth] = useState(initialLayout.dockWidth);
   const [changesView, setChangesView] = useState<"files" | "all">(initialLayout.changesView);
-  const [theme, setTheme] = useState<WebTheme>(storedWebTheme);
+  const [theme, setTheme] = useState<WebTheme>(initialLayout.theme);
   const [paneLayout, setPaneLayout] = useState<PaneLayout>(() => createPaneLayout(initialLayout.panes));
   const [browserPane, setBrowserPane] = useState<BrowserPaneState>(EMPTY_BROWSER_STATE);
   const [mobileDock, setMobileDock] = useState(false);
@@ -426,11 +416,6 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
       document.documentElement.dataset.theme = theme === "system" ? (media.matches ? "dark" : "light") : theme;
     };
     apply();
-    try {
-      localStorage.setItem(WEB_THEME_KEY, theme);
-    } catch (cause) {
-      setSettingsError(cause instanceof Error ? cause.message : "Could not save the theme preference");
-    }
     if (theme !== "system") return;
     media.addEventListener("change", apply);
     return () => media.removeEventListener("change", apply);
@@ -651,6 +636,7 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
       setDockWidth(environment.bootstrap.preferences.dockWidth);
       setChangesView(environment.bootstrap.preferences.changesView);
       setSidebarCollapsed(environment.bootstrap.preferences.sidebarCollapsed);
+      setTheme(environment.bootstrap.preferences.theme);
       setPaneLayout(createPaneLayout(environment.bootstrap.preferences.panes));
       if (environment.client.connection.grantedCapabilities.includes("provider.list")) {
         void providers.load().catch(() => undefined);
@@ -2079,6 +2065,7 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
     sidebarCollapsed,
     changesView,
     panes: paneLayout.panes,
+    theme,
   });
 
   const applyPaneLayout = (layout: PaneLayout): void => {
@@ -2131,6 +2118,7 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
   };
 
   const applyWebPreferences = (preferences: WebPreferences): void => {
+    setTheme(preferences.theme);
     setSidebarWidth(preferences.sidebarWidth);
     setDockWidth(preferences.dockWidth);
     setSidebarCollapsed(preferences.sidebarCollapsed);
@@ -2614,7 +2602,7 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
         }}
       />
     </div>
-    {controlCenter && <Suspense fallback={null}><ControlCenter tab={controlCenter} preferences={currentPreferences()} theme={theme} providers={providerInventory} providerLoading={providerLoading} providerRefresh={providerDirectory.refresh} providerError={providerError} providerLogin={providerLogin} settingsError={settingsError} mcp={mcpConfiguration} mcpError={mcpError} mcpBusy={mcpBusy} mcpActiveIdentities={mcpActiveIdentities} canRefresh={hasCapability("provider.catalog.refresh")} canLogin={canLoginProvider} canLogout={hasCapability("provider.auth.logout")} onTab={(tab) => { setControlCenter(tab); if (tab === "mcp") void loadMcpConfiguration(); }} onPreferences={applyWebPreferences} onTheme={(nextTheme) => { setSettingsError(undefined); setTheme(nextTheme); }} onRefresh={(providerId) => void refreshProviders(providerId)} onCancelRefresh={() => providerDirectoryController.current?.cancelRefresh()} onLogin={(providerId, method) => void startProviderLogin(providerId, method)} onCancelLogin={cancelProviderLogin} onLogout={(providerId) => void logoutProvider(providerId)} onCopyLogin={(providerId, method) => void copyProviderLogin(providerId, method)} onMcpAdd={addMcpServer} onMcpImport={importMcpServers} onMcpRemove={(name) => void removeMcpServer(name)} onMcpSetEnabled={(name, enabled) => void setMcpServerEnabled(name, enabled)} onMcpReload={() => void mutateMcpServer("MCP servers reloaded", () => Promise.resolve())} onClose={() => { setControlCenter(undefined); setSettingsError(undefined); setMcpError(undefined); }} /></Suspense>}
+    {controlCenter && <Suspense fallback={null}><ControlCenter tab={controlCenter} preferences={currentPreferences()} theme={theme} providers={providerInventory} providerLoading={providerLoading} providerRefresh={providerDirectory.refresh} providerError={providerError} providerLogin={providerLogin} settingsError={settingsError} mcp={mcpConfiguration} mcpError={mcpError} mcpBusy={mcpBusy} mcpActiveIdentities={mcpActiveIdentities} canRefresh={hasCapability("provider.catalog.refresh")} canLogin={canLoginProvider} canLogout={hasCapability("provider.auth.logout")} onTab={(tab) => { setControlCenter(tab); if (tab === "mcp") void loadMcpConfiguration(); }} onPreferences={applyWebPreferences} onTheme={(nextTheme) => { setSettingsError(undefined); setTheme(nextTheme); persistLayout({ ...currentPreferences(), theme: nextTheme }); }} onRefresh={(providerId) => void refreshProviders(providerId)} onCancelRefresh={() => providerDirectoryController.current?.cancelRefresh()} onLogin={(providerId, method) => void startProviderLogin(providerId, method)} onCancelLogin={cancelProviderLogin} onLogout={(providerId) => void logoutProvider(providerId)} onCopyLogin={(providerId, method) => void copyProviderLogin(providerId, method)} onMcpAdd={addMcpServer} onMcpImport={importMcpServers} onMcpRemove={(name) => void removeMcpServer(name)} onMcpSetEnabled={(name, enabled) => void setMcpServerEnabled(name, enabled)} onMcpReload={() => void mutateMcpServer("MCP servers reloaded", () => Promise.resolve())} onClose={() => { setControlCenter(undefined); setSettingsError(undefined); setMcpError(undefined); }} /></Suspense>}
     {sessionLifecycleOpen && selectedSummary && <SessionLifecycle session={selectedSummary} busy={lifecycleBusy} capabilities={lifecycleCapabilities} {...(sessionLifecycleError === undefined ? {} : { error: sessionLifecycleError })} onRename={(title) => void renameSession(title)} onClone={() => void cloneSession()} onExport={() => void exportArtifact()} onDispose={() => void disposeSession()} onDelete={() => void deleteSession()} onClose={() => { setSessionLifecycleOpen(false); setSessionLifecycleError(undefined); }} />}
     {requeueOpen && <RequeueDialog items={pausedQueue} busyItemId={requeueBusyItemId} error={requeueError} onRequeue={(queueItemId) => void requeueItem(queueItemId)} onClose={() => { setRequeueOpen(false); setRequeueError(undefined); }} />}
     {newSessionOpen && <NewSessionDialog
