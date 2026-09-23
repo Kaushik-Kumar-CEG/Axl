@@ -291,6 +291,7 @@ test("the gateway exchanges one launch token and authenticates one daemon bridge
       sidebarCollapsed: false,
       changesView: "files",
       panes: ["browser", "files"],
+      theme: "system",
     },
     hostCapabilities: ["project.folder.validate", "provider.auth.login"],
   });
@@ -349,7 +350,38 @@ test("the gateway exchanges one launch token and authenticates one daemon bridge
     sidebarCollapsed: true,
     changesView: "all",
     panes: ["browser", "terminal"],
+    theme: "system",
   });
+  const themed = await fetch(new URL("preferences", gateway.origin), {
+    method: "POST",
+    headers: { origin, cookie: cookieHeader, "content-type": "application/json" },
+    body: JSON.stringify({
+      sidebarWidth: 300,
+      dockWidth: 720,
+      sidebarCollapsed: true,
+      changesView: "all",
+      panes: ["terminal", "browser"],
+      theme: "dark",
+    }),
+  });
+  assert.equal(themed.status, 200);
+  assert.equal(
+    JSON.parse(await readFile(join(directory, "web-preferences.json"), "utf8")).theme,
+    "dark",
+  );
+  const invalidTheme = await fetch(new URL("preferences", gateway.origin), {
+    method: "POST",
+    headers: { origin, cookie: cookieHeader, "content-type": "application/json" },
+    body: JSON.stringify({
+      sidebarWidth: 300,
+      dockWidth: 720,
+      sidebarCollapsed: true,
+      changesView: "all",
+      panes: ["terminal", "browser"],
+      theme: "neon",
+    }),
+  });
+  assert.equal(invalidTheme.status, 400);
   const invalidPanes = await fetch(new URL("preferences", gateway.origin), {
     method: "POST",
     headers: { origin, cookie: cookieHeader, "content-type": "application/json" },

@@ -64,6 +64,7 @@ export interface WebPreferences {
   readonly sidebarCollapsed: boolean;
   readonly changesView: "files" | "all";
   readonly panes: readonly WebPaneId[];
+  readonly theme: "system" | "light" | "dark";
 }
 
 const MAX_WEB_ARTIFACT_BYTES = 64 * 1024 * 1024;
@@ -75,6 +76,7 @@ const DEFAULT_WEB_PREFERENCES: WebPreferences = {
   sidebarCollapsed: false,
   changesView: "files",
   panes: ["browser", "files"],
+  theme: "system",
 };
 
 function isWorkspaceDiffRequest(text: string): boolean {
@@ -104,8 +106,19 @@ function parsePreferences(value: unknown): WebPreferences {
   if (
     Object.keys(record).some(
       (key) =>
-        !["sidebarWidth", "dockWidth", "sidebarCollapsed", "changesView", "panes"].includes(key),
+        ![
+          "sidebarWidth",
+          "dockWidth",
+          "sidebarCollapsed",
+          "changesView",
+          "panes",
+          "theme",
+        ].includes(key),
     ) ||
+    (record.theme !== undefined &&
+      record.theme !== "system" &&
+      record.theme !== "light" &&
+      record.theme !== "dark") ||
     !Number.isInteger(record.sidebarWidth) ||
     Number(record.sidebarWidth) < 200 ||
     Number(record.sidebarWidth) > 420 ||
@@ -122,6 +135,7 @@ function parsePreferences(value: unknown): WebPreferences {
     sidebarCollapsed: record.sidebarCollapsed,
     changesView: record.changesView,
     panes: parsePaneIds(record.panes),
+    theme: (record.theme as "system" | "light" | "dark" | undefined) ?? "system",
   };
 }
 

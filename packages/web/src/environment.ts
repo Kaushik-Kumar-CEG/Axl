@@ -26,6 +26,8 @@ export interface WebPreferences {
   readonly changesView: "files" | "all";
   /** Open dock panes in tiling order. */
   readonly panes: readonly PaneId[];
+  /** Host-persisted color theme so it survives the per-launch gateway port. */
+  readonly theme: "system" | "light" | "dark";
 }
 
 export type WebHostCapability = "project.folder.validate" | "provider.auth.login";
@@ -104,12 +106,20 @@ export function parseWebPreferences(value: unknown): WebPreferences {
   } catch (cause) {
     throw new Error("Invalid web preferences", { cause });
   }
+  if (
+    preferences.theme !== undefined &&
+    preferences.theme !== "system" &&
+    preferences.theme !== "light" &&
+    preferences.theme !== "dark"
+  )
+    throw new Error("Invalid web preferences");
   return {
     sidebarWidth: preferences.sidebarWidth as number,
     dockWidth: preferences.dockWidth as number,
     sidebarCollapsed: preferences.sidebarCollapsed,
     changesView: preferences.changesView,
     panes,
+    theme: (preferences.theme as "system" | "light" | "dark" | undefined) ?? "system",
   };
 }
 
