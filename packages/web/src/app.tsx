@@ -721,10 +721,21 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
   const wantsChanges = paneLayout.panes.includes("changes");
   useEffect(() => {
     if (opened === undefined) return;
-    if (wantsFiles && !workspaceBrowser.loaded && !browserLoading && browserError === undefined) void loadWorkspaceDirectory("");
-    if (wantsChanges && workspaceReview === undefined && !reviewLoading && reviewError === undefined) void loadWorkspaceChanges(workspaceScope);
-    // Only pane visibility and session identity trigger loads; loader state is read, not tracked.
-  }, [opened?.sessionId, wantsFiles, wantsChanges]);
+    // Never issue workspace RPCs the connection was not granted; the pane picker
+    // already renders the "not granted" state. Capability predicates are
+    // declared later in the component, so recompute them here from primitives.
+    const granted = (capability: string): boolean =>
+      preview?.capabilities === undefined
+        ? preview !== undefined || client?.connection.grantedCapabilities.includes(capability) === true
+        : preview.capabilities.includes(capability);
+    const isCode = opened.profile !== "chat";
+    const canBrowse = isCode && granted("session.workspace.list") && granted("session.workspace.read") && (preview?.workspaceClient !== undefined || client !== undefined);
+    const canReview = isCode && granted("session.workspace.status") && granted("session.workspace.diff") && (preview?.workspace !== undefined || preview?.workspaceClient !== undefined || client !== undefined);
+    if (wantsFiles && canBrowse && !workspaceBrowser.loaded && !browserLoading && browserError === undefined) void loadWorkspaceDirectory("");
+    if (wantsChanges && canReview && workspaceReview === undefined && !reviewLoading && reviewError === undefined) void loadWorkspaceChanges(workspaceScope);
+    // Only pane visibility, session identity, and connection identity trigger
+    // loads; loader state is read, not tracked.
+  }, [opened?.sessionId, opened?.profile, wantsFiles, wantsChanges, client, preview]);
   useEffect(() => setTranscriptMatch(-1), [transcriptQuery]);
   useEffect(() => setSlashCommandIndex(0), [draft]);
   useEffect(() => {
@@ -1580,17 +1591,22 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
     try {
       const result = await operations.list(path, cursor);
       if (!current()) return;
-      setWorkspaceBrowser((state) => ({
-        ...state,
-        path,
-        entries: append && state.path === path
-          ? [...state.entries, ...result.entries]
-          : result.entries,
-        loaded: true,
-        ...(result.nextPageCursor === undefined
-          ? {}
-          : { nextPageCursor: result.nextPageCursor }),
-      }));
+      setWorkspaceBrowser((state) => {
+        // Drop any prior cursor first so the final page (which returns none)
+        // clears "Load more" instead of re-appending the last page.
+        const { nextPageCursor: _priorCursor, ...rest } = state;
+        return {
+          ...rest,
+          path,
+          entries: append && state.path === path
+            ? [...state.entries, ...result.entries]
+            : result.entries,
+          loaded: true,
+          ...(result.nextPageCursor === undefined
+            ? {}
+            : { nextPageCursor: result.nextPageCursor }),
+        };
+      });
     } catch (cause) {
       if (current())
         setBrowserError(cause instanceof Error ? cause.message : "Could not list workspace files");
