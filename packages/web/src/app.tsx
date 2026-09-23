@@ -364,6 +364,10 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
   const subscription = useRef<SessionSubscription | undefined>(undefined);
   const blobUrlCache = useRef(new Map<string, string>());
   const blobUrlSession = useRef<string | undefined>(undefined);
+  // One long-lived controller per opened session; aborted only when the session
+  // changes or the component unmounts, never on an unrelated transcript update.
+  const blobReadController = useRef<AbortController | undefined>(undefined);
+  const blobReadsInFlight = useRef(new Set<string>());
   const openedSessionId = useRef<SessionId | undefined>(preview?.opened.sessionId);
   const selectionGeneration = useRef(0);
   const workspaceRequestGeneration = useRef(0);
@@ -657,9 +661,20 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
     };
   }, [preview]);
 
+  const messageBlobList = useMemo(() => messageBlobs(conversation), [conversation.records]);
+  // Stable identity for the set of attachments; changes only when a blob is
+  // added or removed, not on every streamed token.
+  const messageBlobKey = useMemo(
+    () => messageBlobList.map((reference) => reference.sha256).sort().join(","),
+    [messageBlobList],
+  );
   useEffect(() => {
     const sessionId = opened?.sessionId;
     if (blobUrlSession.current !== sessionId) {
+      // Session changed: revoke cached URLs and abort the previous session's reads.
+      blobReadController.current?.abort();
+      blobReadController.current = undefined;
+      blobReadsInFlight.current.clear();
       for (const url of blobUrlCache.current.values()) URL.revokeObjectURL(url);
       blobUrlCache.current.clear();
       blobUrlSession.current = sessionId;
@@ -667,13 +682,14 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
     }
     if (preview !== undefined || client === undefined || sessionId === undefined || !client.connection.grantedCapabilities.includes("session.blob.read")) return;
     const activeSessionId = sessionId;
-    let cancelled = false;
-    const controller = new AbortController();
-    for (const reference of messageBlobs(conversation)) {
-      if (blobUrlCache.current.has(reference.sha256)) continue;
+    if (blobReadController.current === undefined) blobReadController.current = new AbortController();
+    const controller = blobReadController.current;
+    for (const reference of messageBlobList) {
+      if (blobUrlCache.current.has(reference.sha256) || blobReadsInFlight.current.has(reference.sha256)) continue;
+      blobReadsInFlight.current.add(reference.sha256);
       void client.readBlob(activeSessionId, reference, { signal: controller.signal }).then((bytes) => {
         const url = URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: reference.mediaType }));
-        if (cancelled || blobUrlSession.current !== activeSessionId) {
+        if (controller.signal.aborted || blobUrlSession.current !== activeSessionId) {
           URL.revokeObjectURL(url);
           return;
         }
@@ -681,13 +697,17 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
         setBlobUrls(new Map(blobUrlCache.current));
       }).catch((cause: unknown) => {
         if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "Could not load an attachment");
+      }).finally(() => {
+        blobReadsInFlight.current.delete(reference.sha256);
       });
     }
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [client, conversation.records, opened?.sessionId, preview]);
+    // No cleanup abort: in-flight reads outlive unrelated transcript updates and
+    // are cancelled only on session change (above) or unmount (below).
+  }, [client, messageBlobKey, opened?.sessionId, preview]);
+  useEffect(() => () => {
+    blobReadController.current?.abort();
+    blobReadController.current = undefined;
+  }, []);
 
   useEffect(() => () => {
     for (const url of blobUrlCache.current.values()) URL.revokeObjectURL(url);
