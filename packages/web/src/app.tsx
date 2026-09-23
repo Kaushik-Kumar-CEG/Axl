@@ -549,7 +549,13 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
           }
           if (live && event.type === "config.dialect" && event.payload.reason === "reload") {
             setExtensionEpoch((epoch) => epoch + 1);
-            void providerDirectoryController.current?.load(true).catch(() => undefined);
+            void providerDirectoryController.current
+              ?.load(true)
+              .catch((cause: unknown) =>
+                setError(
+                  cause instanceof Error ? cause.message : "Could not refresh the provider catalog",
+                ),
+              );
             if (current.connection.grantedCapabilities.includes("mcp.config.list")) {
               void current.listMcpServers().then(setMcpConfiguration).catch(() => undefined);
             }
@@ -645,7 +651,10 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
       setTheme(environment.bootstrap.preferences.theme);
       setPaneLayout(createPaneLayout(environment.bootstrap.preferences.panes));
       if (environment.client.connection.grantedCapabilities.includes("provider.list")) {
-        void providers.load().catch(() => undefined);
+        void providers.load().catch((cause: unknown) => {
+          if (!disposed)
+            setError(cause instanceof Error ? cause.message : "Could not load the provider catalog");
+        });
       }
       removeStateListener = environment.client.onStateChange((state) => {
         if (!disposed) {
@@ -1668,10 +1677,11 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
       await client.reconnect();
       await refreshSessions(client);
       await refreshCommandDirectory(opened?.sessionId);
+      // The daemon owns the session across a reconnect, so its checkpoint state
+      // is already authoritative. Reset only the client-side generation cache;
+      // never replay a checkpoint mutation from browser memory, which would
+      // silently re-enable checkpoints a user disabled from another client.
       workspaceController.current?.reset();
-      if (workspaceCheckpointEnabled === true) {
-        await workspaceController.current?.checkpoint(true);
-      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not reconnect to the daemon");
     }

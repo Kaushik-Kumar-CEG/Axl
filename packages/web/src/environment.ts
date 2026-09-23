@@ -15,6 +15,12 @@ import { BrowserWebSocketTransportFactory } from "@axl/sdk/browser";
 
 import { type PaneId, parsePaneIds } from "./panes.ts";
 
+// Replaced at build time by Vite define; falls back to a development marker when
+// running unbundled (for example under the test runner).
+declare const __AXL_WEB_VERSION__: string | undefined;
+const WEB_CLIENT_VERSION =
+  typeof __AXL_WEB_VERSION__ === "string" ? __AXL_WEB_VERSION__ : "0.0.0-dev";
+
 export const SIDEBAR_WIDTH_RANGE = Object.freeze({ min: 200, max: 420 });
 export const DOCK_WIDTH_RANGE = Object.freeze({ min: 380, max: 1200 });
 
@@ -66,10 +72,12 @@ function fragment(): { readonly token?: string; readonly sessionId?: SessionId }
   const requestedSession =
     values.get("session") ?? new URLSearchParams(location.search).get("session");
   let sessionId: SessionId | undefined;
-  try {
-    if (requestedSession !== null) sessionId = parseSessionId(requestedSession);
-  } catch {
-    sessionId = undefined;
+  if (requestedSession !== null) {
+    try {
+      sessionId = parseSessionId(requestedSession);
+    } catch (cause) {
+      throw new Error(`The session id in the address is not valid: ${requestedSession}`, { cause });
+    }
   }
   retainBrowserSession(sessionId);
   return {
@@ -276,7 +284,7 @@ export async function connectWebEnvironment(): Promise<{
     transport: new BrowserWebSocketTransportFactory(
       `${protocol}//${location.host}${new URL(bootstrap.webSocketPath, location.href).pathname}`,
     ),
-    identity: { kind: "web", version: "0.0.0", instanceId: crypto.randomUUID() },
+    identity: { kind: "web", version: WEB_CLIENT_VERSION, instanceId: crypto.randomUUID() },
     idempotencyKeys: { create: () => crypto.randomUUID() },
     requestedCapabilities: WEB_REQUESTED_CAPABILITIES,
   });
