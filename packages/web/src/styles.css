@@ -184,6 +184,9 @@ svg { flex:none; }
 .connection.disconnected i, .connection.incompatible i { background:var(--red); }
 .thread { overflow:auto; padding:0 32px calc(var(--composer-height, 172px) + 44px); scroll-behavior:smooth; scrollbar-color:var(--line) transparent; }
 .thread-inner { width:min(830px,100%); min-width:0; margin:0 auto; }
+.fork-picking-bar { position:absolute; z-index:6; top:64px; left:50%; display:flex; align-items:center; gap:12px; padding:7px 8px 7px 14px; border:1px solid color-mix(in srgb,var(--accent) 45%,var(--line)); border-radius:20px; background:var(--raised); color:var(--text-soft); font-size:12px; box-shadow:0 10px 28px var(--shadow); transform:translateX(-50%); }
+.fork-picking-bar button { padding:4px 11px; border:1px solid var(--line); border-radius:14px; background:var(--panel); color:var(--text-soft); font-size:11px; cursor:pointer; }
+.fork-picking-bar button:hover,.fork-picking-bar button:focus-visible { background:var(--selected); color:var(--text); outline:0; }
 .prompt-breakpoints { position:absolute; z-index:4; top:50%; right:10px; display:flex; width:174px; max-height:min(54vh,480px); flex-direction:column; gap:2px; overflow:auto; padding:4px; border:1px solid var(--line-soft); border-radius:8px; background:var(--raised); box-shadow:0 12px 34px var(--shadow); opacity:0; pointer-events:none; transform:translate(8px,-50%); transition:opacity 140ms ease-out,transform 140ms ease-out; scrollbar-width:none; }
 .prompt-breakpoints.visible,.prompt-breakpoints:focus-within { opacity:1; pointer-events:auto; transform:translate(0,-50%); }
 .prompt-breakpoints button { position:relative; overflow:hidden; width:100%; padding:7px 8px 7px 16px; border:0; border-radius:5px; background:transparent; color:var(--subtle); font-size:10px; line-height:1.35; text-align:left; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; }

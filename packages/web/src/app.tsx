@@ -310,6 +310,7 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
   const [transcriptNavigationVisible, setTranscriptNavigationVisible] = useState(false);
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
   const [activePromptId, setActivePromptId] = useState<string>();
+  const [forkPicking, setForkPicking] = useState(false);
   const [providerDirectory, setProviderDirectory] = useState<ProviderDirectoryState>({
     status: preview === undefined ? "idle" : "ready",
     models: preview?.modelCatalog ?? [],
@@ -365,6 +366,7 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
   const reviewRequest = useRef(0);
   const transcript = useRef<HTMLDivElement>(null);
   const composerForm = useRef<HTMLFormElement>(null);
+  const scrollRaf = useRef<number | undefined>(undefined);
   // Auto-scroll only follows streaming output when the reader is already at the
   // bottom, so scrolling up during a response is never hijacked.
   const stickToBottom = useRef(true);
@@ -397,6 +399,13 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
       view.style.removeProperty("--composer-height");
     };
   }, [opened]);
+
+  useEffect(
+    () => () => {
+      if (scrollRaf.current !== undefined) cancelAnimationFrame(scrollRaf.current);
+    },
+    [],
+  );
 
 
   const listSessionsPage = (
@@ -501,7 +510,7 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
     setModelActionError(undefined);
     setSessionLifecycleError(undefined);
     setCommandPaletteError(undefined);
-    setSessionSwitching(true); setDirectOperation(undefined); setError(undefined); setTerminalError(undefined); setSidebarOpen(false); setMobileDock(false); setTranscriptSearchOpen(false); setUsageOpen(false); setControlCenter(undefined); setSessionLifecycleOpen(false); setRequeueOpen(false); setRequeueBusyItemId(undefined); setRequeueError(undefined); setNewSessionOpen(false); setTranscriptQuery(""); setActivePromptId(undefined); setWorkspaceReview(undefined); setWorkspaceBrowser({ path: "", entries: [], loaded: false }); setWorkspaceScope("working"); setWorkspaceCheckpointEnabled(undefined); setBrowserError(undefined); setReviewError(undefined); setBrowserLoading(false); setReviewLoading(false); setOpened(undefined); setConversation(EMPTY_STATE);
+    setSessionSwitching(true); setDirectOperation(undefined); setError(undefined); setTerminalError(undefined); setSidebarOpen(false); setMobileDock(false); setTranscriptSearchOpen(false); setUsageOpen(false); setControlCenter(undefined); setSessionLifecycleOpen(false); setRequeueOpen(false); setRequeueBusyItemId(undefined); setRequeueError(undefined); setNewSessionOpen(false); setTranscriptQuery(""); setActivePromptId(undefined); setForkPicking(false); setWorkspaceReview(undefined); setWorkspaceBrowser({ path: "", entries: [], loaded: false }); setWorkspaceScope("working"); setWorkspaceCheckpointEnabled(undefined); setBrowserError(undefined); setReviewError(undefined); setBrowserLoading(false); setReviewLoading(false); setOpened(undefined); setConversation(EMPTY_STATE);
     stickToBottom.current = true; setShowJumpToLatest(false);
     const previous = subscription.current;
     subscription.current = undefined;
@@ -874,6 +883,11 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
         event.preventDefault();
         void restoreQueuedInputs(false);
       } else if (event.key === "Escape") {
+        if (forkPicking) {
+          event.preventDefault();
+          setForkPicking(false);
+          return;
+        }
         const top = topLightOverlay(overlays);
         if (top !== undefined) {
           // Close only the topmost light overlay, one Escape at a time.
@@ -899,7 +913,7 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
       removeEventListener("keydown", keydown);
       if (transcriptNavigationTimer.current !== undefined) clearTimeout(transcriptNavigationTimer.current);
     };
-  }, [opened, commandPaletteOpen, transcriptSearchOpen, usageOpen, controlCenter, sidebarOpen, mobileDock, requeueOpen, newSessionOpen, sessionLifecycleOpen, sessionSwitching, directBusy, lifecycleBusy, conversation.activeOperationId, conversation.queue, conversation.provider, conversation.model, conversation.thinking, configurationState.pending.length, connection, client, modelCatalog, pendingInputs.length, preview]);
+  }, [opened, commandPaletteOpen, transcriptSearchOpen, usageOpen, controlCenter, sidebarOpen, mobileDock, requeueOpen, newSessionOpen, sessionLifecycleOpen, sessionSwitching, directBusy, lifecycleBusy, forkPicking, conversation.activeOperationId, conversation.queue, conversation.provider, conversation.model, conversation.thinking, configurationState.pending.length, connection, client, modelCatalog, pendingInputs.length, preview]);
 
   useEffect(() => {
     if (!usageOpen) return;
@@ -1519,6 +1533,7 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
   };
 
   const forkMessage = async (fromEventId: EventId): Promise<void> => {
+    setForkPicking(false);
     if (conversation.activeOperationId !== undefined) {
       setError("Finish or interrupt the current response before forking");
       return;
@@ -1809,7 +1824,7 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
         setSidebarCollapsed(false);
         setSidebarOpen(true);
       } else if (outcome.surface === "fork") {
-        showActionNotice("Choose Fork on the message where the new session should begin");
+        setForkPicking(true);
       } else if (outcome.surface === "requeue") {
         restoreComposerFocus = false;
         setRequeueError(undefined);
@@ -2273,13 +2288,21 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
     setTranscriptNavigationVisible(true);
     if (transcriptNavigationTimer.current !== undefined) clearTimeout(transcriptNavigationTimer.current);
     transcriptNavigationTimer.current = setTimeout(() => setTranscriptNavigationVisible(false), 1400);
-    const threshold = viewport.getBoundingClientRect().top + 120;
-    let active = promptBreakpoints[0]?.id;
-    for (const point of promptBreakpoints) {
-      const element = document.getElementById(`message-${point.id}`);
-      if (element !== null && element.getBoundingClientRect().top <= threshold) active = point.id;
-    }
-    setActivePromptId(active);
+    // Scroll events can fire many times per frame; coalesce the O(n) active
+    // breakpoint scan (one DOM lookup per prompt) to at most once per frame.
+    if (scrollRaf.current !== undefined) return;
+    scrollRaf.current = requestAnimationFrame(() => {
+      scrollRaf.current = undefined;
+      const current = transcript.current;
+      if (current === null) return;
+      const threshold = current.getBoundingClientRect().top + 120;
+      let active = promptBreakpoints[0]?.id;
+      for (const point of promptBreakpoints) {
+        const element = document.getElementById(`message-${point.id}`);
+        if (element !== null && element.getBoundingClientRect().top <= threshold) active = point.id;
+      }
+      setActivePromptId(active);
+    });
   };
 
   const paneUnavailableReasons: Readonly<Record<PaneId, string | undefined>> = {
@@ -2333,7 +2356,8 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
       {opened && conversation.sandbox?.enforced === false && <div className="unsafe-banner" role="alert"><strong>Unsafe session</strong><span>Sandbox enforcement is disabled. Tools run with your host permissions.</span></div>}
       {usageOpen && <section ref={usagePanel} className="session-usage" aria-label="Session usage"><header><strong>Session usage</strong><button type="button" aria-label="Close session usage" onClick={() => setUsageOpen(false)}><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8" /></svg></button></header><p>{conversation.provider && conversation.model ? `${conversation.provider} / ${conversation.model}` : conversation.model ?? "No model selected"}{conversation.thinking ? ` · ${conversation.thinking}` : ""}</p><dl><div><dt>Input</dt><dd>{compactNumber(conversation.usage.inputTokens)}</dd></div><div><dt>Output</dt><dd>{compactNumber(conversation.usage.outputTokens)}</dd></div><div><dt>Cache read</dt><dd>{compactNumber(conversation.usage.cacheReadTokens)}</dd></div><div><dt>Cache hit</dt><dd>{usageStats.cacheHitPercent.toFixed(1)}%</dd></div><div><dt>Reasoning</dt><dd>{compactNumber(conversation.usage.reasoningTokens)}</dd></div><div><dt>Throughput</dt><dd>{usageStats.tokensPerSecond === undefined ? "Unknown" : `${usageStats.tokensPerSecond.toFixed(1)} tok/s`}</dd></div><div><dt>Recorded cost</dt><dd>${conversation.usage.costUsd.toFixed(4)}</dd></div></dl>{usageStats.unknownCostResponses > 0 && <small>{usageStats.unknownCostResponses} response{usageStats.unknownCostResponses === 1 ? " has" : "s have"} no cost data.</small>}{stateHistory.length > 0 && <details className="state-history"><summary>Configuration history</summary><ol>{stateHistory.map((entry) => <li key={entry.id}><span><strong>{entry.label}</strong><small>{entry.detail}</small></span><time>{new Date(entry.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time></li>)}</ol></details>}</section>}
       {transcriptSearchOpen && <div className="transcript-search" role="search"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.25" /><path d="m10.25 10.25 3 3" /></svg><input autoFocus type="search" aria-label="Search transcript" placeholder="Search transcript" value={transcriptQuery} onChange={(event) => setTranscriptQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); moveTranscriptMatch(event.shiftKey ? -1 : 1); } }} /><span>{transcriptQuery.trim() ? `${transcriptMatches.length === 0 ? 0 : Math.max(0, transcriptMatch + 1)} / ${transcriptMatches.length}` : ""}</span><button type="button" aria-label="Previous result" disabled={transcriptMatches.length === 0} onClick={() => moveTranscriptMatch(-1)}><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 10 4-4 4 4" /></svg></button><button type="button" aria-label="Next result" disabled={transcriptMatches.length === 0} onClick={() => moveTranscriptMatch(1)}><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4" /></svg></button><button type="button" aria-label="Close transcript search" onClick={() => { setTranscriptSearchOpen(false); setTranscriptQuery(""); }}><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8" /></svg></button></div>}
-      <div className="thread" ref={transcript} onScroll={trackTranscriptScroll}>
+      {forkPicking && <div className="fork-picking-bar" role="status"><span>Pick a message to fork from</span><button type="button" onClick={() => setForkPicking(false)}>Cancel</button></div>}
+      <div className={`thread${forkPicking ? " fork-picking" : ""}`} ref={transcript} onScroll={trackTranscriptScroll}>
         {opened ? <div className="thread-inner"><div className="thread-title"><h1>{currentTitle}</h1>{opened.profile !== "chat" && <p>{opened.cwd}</p>}</div><Suspense fallback={null}><Conversation conversation={conversation} searchQuery={transcriptQuery} resolveBlobUrl={stableResolveBlobUrl} loadFullToolOutput={canLoadFullOutput ? stableLoadFullToolOutput : undefined} onRespondInteraction={hasCapability("session.interaction.respond") ? stableRespondInteraction : undefined} onCopyMessage={stableCopyMessage} onForkMessage={hasCapability("session.fork") ? stableForkMessage : undefined} /></Suspense>{conversation.activity && <article className="message assistant live"><span className="avatar axl">A</span><div><header><strong>Axl</strong><time>working</time></header>{conversation.activity.thinking && <details><summary>Thinking</summary><Suspense fallback={<p className="streaming-text">{conversation.activity.thinking}</p>}><LiveMarkdown text={conversation.activity.thinking} /></Suspense></details>}{conversation.activity.text ? <><Suspense fallback={<p className="streaming-text">{conversation.activity.text}</p>}><LiveMarkdown text={conversation.activity.text} /></Suspense><p className="waiting-response" aria-hidden="true"><span className="waiting-dots"><i></i><i></i><i></i></span></p></> : <p className="waiting-response">Waiting for response<span className="waiting-dots" aria-hidden="true"><i></i><i></i><i></i></span></p>}</div></article>}</div> : <div className="empty"><span className="brand-mark large">A</span><h1>No session selected</h1><p>Resume a durable session or start one in this workspace.</p><button title={canCreate ? undefined : "Unavailable because session creation was not granted"} disabled={!canCreate} onClick={() => openNewSession()}>New session</button></div>}
       </div>
       {opened && showJumpToLatest && <div className="jump-to-latest"><button type="button" onClick={scrollToLatest} aria-label="Jump to latest message"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v9m0 0 4-4m-4 4-4-4" /></svg>Jump to latest</button></div>}
