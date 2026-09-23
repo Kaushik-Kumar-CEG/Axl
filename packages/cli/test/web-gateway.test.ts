@@ -565,6 +565,22 @@ test("the gateway exchanges one launch token and authenticates one daemon bridge
   );
   assert.equal(await reviewClose, 1008);
 
+  const multiRecord = new WebSocket(new URL("ws", gateway.origin), {
+    headers: { origin, cookie: cookieHeader },
+  });
+  await new Promise<void>((resolve, reject) => {
+    multiRecord.once("open", resolve);
+    multiRecord.once("error", reject);
+  });
+  const multiRecordClose = new Promise<number>((resolve) =>
+    multiRecord.once("close", (code) => resolve(code)),
+  );
+  const packed = Array.from({ length: 200 }, (_unused, id) =>
+    JSON.stringify({ kind: "request", id, method: "connection.ping", params: {} }),
+  ).join("\n");
+  multiRecord.send(`${packed}\n`);
+  assert.equal(await multiRecordClose, 1008);
+
   const flooded = new WebSocket(new URL("ws", gateway.origin), {
     headers: { origin, cookie: cookieHeader },
   });
