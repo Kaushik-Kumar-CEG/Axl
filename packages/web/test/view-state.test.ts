@@ -4,7 +4,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { ConversationState, SessionSummary } from "@axl/sdk";
+import { type ConversationState, parseSessionId, type SessionSummary } from "@axl/sdk";
 import { editDiffRows } from "@axl/ui";
 import {
   anyModalOverlayOpen,
@@ -16,6 +16,7 @@ import {
   matchesSession,
   messageBlobs,
   nextSelectableSlashIndex,
+  previewSessionSummary,
   type OverlayFlags,
   promptDeliveryShortcut,
   restoreDraft,
@@ -363,4 +364,25 @@ test("slash-command navigation and selection skip unavailable commands", () => {
   const unavailable = [{ availability: { state: "unavailable" } }] as const;
   assert.equal(selectableSlashCommand(unavailable, 0), undefined);
   assert.equal(nextSelectableSlashIndex(unavailable, 0, 1), 0);
+});
+
+test("preview session summary carries opened fields with placeholder counts", () => {
+  const opened = {
+    sessionId: parseSessionId("123e4567-e89b-42d3-a456-426614174777"),
+    cwd: "/repo",
+    title: "Cloned",
+    runtime: { state: "idle" as const },
+    profile: "chat" as const,
+  };
+  const summary = previewSessionSummary(opened, 1234);
+  assert.equal(summary.sessionId, opened.sessionId);
+  assert.equal(summary.cwd, "/repo");
+  assert.equal(summary.title, "Cloned");
+  assert.equal(summary.createdAt, 1234);
+  assert.equal(summary.updatedAt, 1234);
+  assert.equal(summary.userMessageCount, 0);
+  assert.equal(summary.profile, "chat");
+  // No title falls through to undefined rather than an empty string.
+  const untitled = previewSessionSummary({ ...opened, title: undefined }, 1);
+  assert.equal(untitled.title, undefined);
 });
