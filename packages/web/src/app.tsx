@@ -925,13 +925,18 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
     if (!opened) return;
     setLifecycleBusy(true); setSessionLifecycleError(undefined);
     try {
+      let appliedTitle = title;
       if (preview?.renameSession !== undefined) await preview.renameSession(title);
-      else if (client !== undefined && commandController.current !== undefined) {
-        await commandController.current.invoke(`/rename ${title}`, opened.sessionId);
+      else if (client !== undefined) {
+        // Use the typed rename RPC so the title is validated by the daemon rather
+        // than round-tripped through command-line parsing, and reflect exactly
+        // what was stored.
+        const result = await client.request("session.rename", { sessionId: opened.sessionId, title });
+        appliedTitle = result.title;
       } else throw new Error("Session rename is unavailable");
       if (client !== undefined) await refreshSessions(client);
-      else setSessions((current) => current.map((session) => session.sessionId === opened.sessionId ? { ...session, title } : session));
-      setOpened((current) => current === undefined ? current : { ...current, title });
+      else setSessions((current) => current.map((session) => session.sessionId === opened.sessionId ? { ...session, title: appliedTitle } : session));
+      setOpened((current) => current === undefined ? current : { ...current, title: appliedTitle });
       setSessionLifecycleOpen(false);
       showActionNotice("Session renamed");
     } catch (cause) {
