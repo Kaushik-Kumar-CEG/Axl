@@ -109,6 +109,7 @@ import {
   matchesSession,
   messageBlobs,
   nextSelectableSlashIndex,
+  previewSessionSummary,
   promptDeliveryShortcut,
   restoreDraft,
   selectableSlashCommand,
@@ -1152,16 +1153,7 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
         setWorkspaceBrowser({ path: "", entries: [], loaded: false });
         setWorkspaceReview(undefined);
         setWorkspaceCheckpointEnabled(undefined);
-        setSessions((current) => [{
-          sessionId: cloned.sessionId,
-          cwd: cloned.cwd,
-          ...(cloned.title === undefined ? {} : { title: cloned.title }),
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-          userMessageCount: 0,
-          runtime: cloned.runtime,
-          attachmentCount: 1,
-        }, ...current]);
+        setSessions((current) => [previewSessionSummary(cloned), ...current]);
         showActionNotice("Session cloned");
       }
     } catch (cause) {
@@ -1211,16 +1203,7 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
         setWorkspaceBrowser({ path: "", entries: [], loaded: false });
         setWorkspaceReview(undefined);
         setWorkspaceCheckpointEnabled(undefined);
-        setSessions((current) => [{
-          sessionId: imported.sessionId,
-          cwd: imported.cwd,
-          ...(imported.title === undefined ? {} : { title: imported.title }),
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-          userMessageCount: 0,
-          runtime: imported.runtime,
-          attachmentCount: 1,
-        }, ...current]);
+        setSessions((current) => [previewSessionSummary(imported), ...current]);
         showActionNotice("Session imported");
       }
     } catch (cause) {

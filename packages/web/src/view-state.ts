@@ -5,6 +5,7 @@ import type {
   BlobReference,
   ConversationState,
   PromptDeliveryMode,
+  SessionOpenResult,
   SessionSummary,
   WorkspaceDiffResult,
 } from "@axl/sdk";
@@ -165,6 +166,28 @@ export function workspaceTotals(diffs: readonly WorkspaceDiffResult[]): {
 
 export function sessionTitle(session: SessionSummary): string {
   return session.title ?? session.lastUserMessage ?? session.firstUserMessage ?? "New session";
+}
+
+/**
+ * Builds the sidebar summary for a session opened in preview mode, where there
+ * is no daemon catalog to refresh from. The message and attachment counts are
+ * placeholders for the fixture; live sessions always come from session.list.
+ */
+export function previewSessionSummary(
+  session: SessionOpenResult,
+  now: number = Date.now(),
+): SessionSummary {
+  return {
+    sessionId: session.sessionId,
+    cwd: session.cwd,
+    ...(session.title === undefined ? {} : { title: session.title }),
+    createdAt: now,
+    updatedAt: now,
+    userMessageCount: 0,
+    runtime: session.runtime,
+    attachmentCount: 1,
+    profile: session.profile,
+  };
 }
 
 export function restoreDraft(sent: string, current: string): string {
