@@ -101,6 +101,7 @@ import {
   compactNumber,
   consumePendingPromptDeliveries,
   directShellInput,
+  findSessionInCatalog,
   isScrolledToBottom,
   matchesSession,
   messageBlobs,
@@ -249,6 +250,9 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
   const [client, setClient] = useState<AxlClient>();
   const [bootstrap, setBootstrap] = useState<WebBootstrap>();
   const [sessions, setSessions] = useState<readonly SessionSummary[]>(preview?.sessions ?? []);
+  const [sessionsCursor, setSessionsCursor] = useState<string>();
+  const [loadingMoreSessions, setLoadingMoreSessions] = useState(false);
+  const sessionCatalogGeneration = useRef(0);
   const [opened, setOpened] = useState<SessionOpenResult | undefined>(preview?.opened);
   const [conversation, setConversation] = useState<ConversationState>(preview?.conversation ?? EMPTY_STATE);
   const [draft, setDraft] = useState("");
@@ -398,22 +402,71 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
     return () => media.removeEventListener("change", apply);
   }, [theme]);
 
+  const listSessionsPage = (
+    current: AxlClient,
+    pageCursor?: string,
+  ): Promise<{ readonly sessions: readonly SessionSummary[]; readonly nextPageCursor?: string }> =>
+    current.request("session.list", {
+      scope: "all_local",
+      order: "recent",
+      pageSize: 100,
+      ...(pageCursor === undefined ? {} : { pageCursor }),
+    });
+
   const refreshSessions = async (current: AxlClient): Promise<readonly SessionSummary[]> => {
-    const result = await current.request("session.list", { scope: "all_local", order: "recent", pageSize: 100 });
+    sessionCatalogGeneration.current += 1;
+    const result = await listSessionsPage(current);
     setSessions(result.sessions);
+    setSessionsCursor(result.nextPageCursor);
     return result.sessions;
+  };
+
+  const loadMoreSessions = async (): Promise<void> => {
+    if (client === undefined || sessionsCursor === undefined || loadingMoreSessions) return;
+    const generation = sessionCatalogGeneration.current;
+    const cursor = sessionsCursor;
+    setLoadingMoreSessions(true);
+    try {
+      const result = await listSessionsPage(client, cursor);
+      if (generation !== sessionCatalogGeneration.current) return;
+      setSessions((existing) => {
+        const seen = new Set(existing.map((session) => session.sessionId));
+        return [...existing, ...result.sessions.filter((session) => !seen.has(session.sessionId))];
+      });
+      setSessionsCursor(result.nextPageCursor);
+    } catch (cause) {
+      if (generation === sessionCatalogGeneration.current)
+        setError(cause instanceof Error ? cause.message : "Could not load more sessions");
+    } finally {
+      if (generation === sessionCatalogGeneration.current) setLoadingMoreSessions(false);
+    }
   };
 
   const refreshSessionCatalog = async (current: AxlClient): Promise<void> => {
     const next = await refreshSessions(current);
     const selectedId = openedSessionId.current;
     if (selectedId === undefined) return;
-    const selected = next.find((session) => session.sessionId === selectedId);
-    if (selected !== undefined) {
+    let summary = next.find((session) => session.sessionId === selectedId);
+    if (summary === undefined) {
+      // Absent from the first page does not mean the session was deleted: with
+      // more than one page it may simply sort past the first page. Confirm it is
+      // missing across the whole catalog before tearing it down.
+      const lookup = await findSessionInCatalog(
+        (cursor) => listSessionsPage(current, cursor),
+        selectedId,
+      );
+      if (openedSessionId.current !== selectedId) return;
+      if (!lookup.confirmedAbsent) {
+        if (lookup.session === undefined) return;
+        summary = lookup.session;
+      }
+    }
+    if (summary !== undefined) {
+      const found = summary;
       setOpened((value) => value === undefined ? value : {
         ...value,
-        ...(selected.title === undefined ? {} : { title: selected.title }),
-        runtime: selected.runtime,
+        ...(found.title === undefined ? {} : { title: found.title }),
+        runtime: found.runtime,
       });
       return;
     }
@@ -2170,7 +2223,7 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
       <div className="brand"><span className="brand-mark">A</span><strong>Axl</strong><button ref={sidebarClose} className="sidebar-toggle" aria-label={sidebarOpen ? "Close sessions" : sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} onClick={toggleSidebar}><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2.5" width="12" height="11" rx="1.5" /><path d="M6 2.5v11m4.5-8L8 8l2.5 2.5" /></svg></button></div>
       <div className="workspace-actions"><span>Workspace</span><div>{canImport && <button aria-label="Import session" title="Import session" disabled={lifecycleBusy || sessionSwitching} onClick={() => artifactInput.current?.click()}><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v8m-3-3 3 3 3-3M3 13h10" /></svg></button>}<button aria-label="New session" title={canCreate ? "New session" : "Unavailable because session creation was not granted"} disabled={lifecycleBusy || sessionSwitching || !canCreate} onClick={() => openNewSession()}><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" /></svg></button></div><input ref={artifactInput} className="attachment-input" type="file" accept="application/json,.json" tabIndex={-1} aria-hidden="true" onChange={(event) => { const file = event.target.files?.[0]; if (file !== undefined) void importArtifact(file); }} /></div>
       <label className="search"><span aria-hidden="true">⌕</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Search sessions" placeholder="Search sessions" /></label>
-      <nav>{visibleSessions.map((session) => <button key={session.sessionId} aria-label={`${sessionTitle(session)}, ${session.runtime.state}`} className={session.sessionId === opened?.sessionId ? "session active" : "session"} onClick={() => client && void openSession(client, session.sessionId)}><span className={`session-icon ${session.runtime.state}`} aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M3 3.5h10v7H7l-3 2v-2H3z" /></svg></span><span><strong>{sessionTitle(session)}</strong><small>{session.cwd}</small></span></button>)}{visibleSessions.length === 0 && <p className="no-sessions">No matching sessions</p>}</nav>
+      <nav>{visibleSessions.map((session) => <button key={session.sessionId} aria-label={`${sessionTitle(session)}, ${session.runtime.state}`} className={session.sessionId === opened?.sessionId ? "session active" : "session"} onClick={() => client && void openSession(client, session.sessionId)}><span className={`session-icon ${session.runtime.state}`} aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M3 3.5h10v7H7l-3 2v-2H3z" /></svg></span><span><strong>{sessionTitle(session)}</strong><small>{session.cwd}</small></span></button>)}{visibleSessions.length === 0 && <p className="no-sessions">No matching sessions</p>}{sessionsCursor !== undefined && <button type="button" className="load-more-sessions" disabled={loadingMoreSessions} onClick={() => void loadMoreSessions()}>{loadingMoreSessions ? "Loading…" : "Load more sessions"}</button>}</nav>
       <button className="daemon" aria-label={connection === "disconnected" && client !== undefined ? "Reconnect local daemon" : "Open settings"} aria-expanded={controlCenter !== undefined} onClick={() => { if (connection === "disconnected" && client !== undefined) { void reconnect(); return; } setUsageOpen(false); setTranscriptSearchOpen(false); setControlCenter("settings"); }}><span className={`daemon-status ${connection}`} aria-hidden="true"></span><span><strong>Local daemon</strong><small>{connection === "disconnected" && client === undefined ? "Connection unavailable" : DAEMON_CONNECTION_LABELS[connection]}</small></span>{connection === "disconnected" && client !== undefined ? <svg className="daemon-action" viewBox="0 0 16 16" aria-hidden="true"><path d="M13 6a5 5 0 1 0 .2 3M13 2.5V6H9.5" /></svg> : <svg className="daemon-action" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="2.25" /><path d="M8 1.75v1.5M8 12.75v1.5M1.75 8h1.5M12.75 8h1.5M3.6 3.6l1.05 1.05M11.35 11.35l1.05 1.05M12.4 3.6l-1.05 1.05M4.65 11.35 3.6 12.4" /></svg>}</button>
       {!sidebarCollapsed && <div className="panel-resizer left" role="separator" aria-orientation="vertical" aria-label="Resize session sidebar" aria-valuemin={200} aria-valuemax={420} aria-valuenow={sidebarWidth} aria-valuetext={`${sidebarWidth} pixels wide`} aria-keyshortcuts="ArrowLeft ArrowRight" tabIndex={0} onPointerDown={(event) => resizePanel("left", event)} onKeyDown={(event) => { if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); resizePanelBy("left", event.key === "ArrowLeft" ? -16 : 16); } }} />}
     </aside>

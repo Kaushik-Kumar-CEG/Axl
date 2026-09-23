@@ -69,6 +69,9 @@ svg { flex:none; }
 .search input::placeholder { color:var(--muted); }
 .sidebar nav { display:flex; flex-direction:column; gap:2px; overflow:auto; }
 .no-sessions { margin:12px; color:var(--subtle); font-size:12px; }
+.load-more-sessions { margin:6px 8px 10px; padding:7px 10px; border:1px solid var(--line-soft); border-radius:6px; background:transparent; color:var(--muted); font-size:11px; cursor:pointer; }
+.load-more-sessions:hover:not(:disabled) { background:var(--selected); color:var(--text-soft); }
+.load-more-sessions:disabled { opacity:.6; cursor:default; }
 .session { display:grid; grid-template-columns:14px minmax(0,1fr); gap:8px; width:100%; padding:9px 10px; border:1px solid transparent; border-radius:7px; background:transparent; text-align:left; cursor:pointer; }
 .session:hover { background:var(--surface-hover); }
 .session.active { border-color:var(--line-soft); background:var(--surface-active); box-shadow:0 1px 2px rgba(0,0,0,.12); }

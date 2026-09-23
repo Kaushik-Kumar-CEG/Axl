@@ -10,6 +10,7 @@ import {
   compactNumber,
   consumePendingPromptDeliveries,
   directShellInput,
+  findSessionInCatalog,
   isScrolledToBottom,
   matchesSession,
   messageBlobs,
@@ -265,6 +266,33 @@ test("scroll stickiness tolerates a small gap but not a scrolled-up reader", () 
     isScrolledToBottom({ scrollTop: 0, scrollHeight: 1000, clientHeight: 100 }, 1000),
     true,
   );
+});
+
+test("catalog scan confirms deletion only after a terminal page", async () => {
+  const fetchPage = (
+    cursor: string | undefined,
+  ): Promise<{ sessions: { sessionId: string }[]; nextPageCursor?: string }> =>
+    Promise.resolve(
+      cursor === "p2"
+        ? { sessions: [{ sessionId: "c" }] }
+        : { sessions: [{ sessionId: "a" }, { sessionId: "b" }], nextPageCursor: "p2" },
+    );
+
+  assert.deepEqual(await findSessionInCatalog(fetchPage, "c"), {
+    session: { sessionId: "c" },
+    confirmedAbsent: false,
+  });
+  assert.deepEqual(await findSessionInCatalog(fetchPage, "z"), { confirmedAbsent: true });
+});
+
+test("catalog scan leaves absence unconfirmed when the page cap is hit", async () => {
+  let pageCount = 0;
+  const fetchPage = (): Promise<{ sessions: { sessionId: string }[]; nextPageCursor?: string }> => {
+    pageCount += 1;
+    return Promise.resolve({ sessions: [{ sessionId: "other" }], nextPageCursor: "more" });
+  };
+  assert.deepEqual(await findSessionInCatalog(fetchPage, "missing", 3), { confirmedAbsent: false });
+  assert.equal(pageCount, 3);
 });
 
 test("workspace totals combine additions and deletions across files", () => {

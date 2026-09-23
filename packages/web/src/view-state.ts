@@ -171,6 +171,35 @@ export function restoreDraft(sent: string, current: string): string {
   return current ? `${sent}\n${current}` : sent;
 }
 
+export interface SessionCatalogPage<T> {
+  readonly sessions: readonly T[];
+  readonly nextPageCursor?: string;
+}
+
+/**
+ * Scans a paginated session catalog for one session id. Absence from the first
+ * page does not prove deletion once there is more than one page, so the opened
+ * session must be confirmed missing across the whole catalog before it is torn
+ * down. Returns {@link confirmedAbsent} only when a terminal page is reached
+ * without a match; hitting the page cap leaves absence unconfirmed so callers
+ * fail safe and keep the session.
+ */
+export async function findSessionInCatalog<T extends { readonly sessionId: string }>(
+  fetchPage: (cursor: string | undefined) => Promise<SessionCatalogPage<T>>,
+  sessionId: string,
+  maxPages = 50,
+): Promise<{ readonly session?: T; readonly confirmedAbsent: boolean }> {
+  let cursor: string | undefined;
+  for (let page = 0; page < maxPages; page += 1) {
+    const result = await fetchPage(cursor);
+    const session = result.sessions.find((item) => item.sessionId === sessionId);
+    if (session !== undefined) return { session, confirmedAbsent: false };
+    if (result.nextPageCursor === undefined) return { confirmedAbsent: true };
+    cursor = result.nextPageCursor;
+  }
+  return { confirmedAbsent: false };
+}
+
 export function matchesSession(session: SessionSummary, query: string): boolean {
   const needle = query.trim().toLocaleLowerCase();
   return (
