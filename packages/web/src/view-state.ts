@@ -171,6 +171,44 @@ export function restoreDraft(sent: string, current: string): string {
   return current ? `${sent}\n${current}` : sent;
 }
 
+export interface SlashCommandAvailability {
+  readonly availability: { readonly state: string };
+}
+
+/**
+ * The next slash-command index in the given direction whose availability is not
+ * "unavailable", so keyboard navigation skips commands the user cannot run.
+ * Returns the current index when nothing else is selectable.
+ */
+export function nextSelectableSlashIndex<T extends SlashCommandAvailability>(
+  commands: readonly T[],
+  currentIndex: number,
+  direction: 1 | -1,
+): number {
+  if (commands.length === 0) return currentIndex;
+  let index = currentIndex;
+  for (let step = 0; step < commands.length; step += 1) {
+    index = (index + direction + commands.length) % commands.length;
+    if (commands[index]?.availability.state !== "unavailable") return index;
+  }
+  return currentIndex;
+}
+
+/**
+ * The slash command that Enter or Tab should run: the highlighted one when it is
+ * available, otherwise the first available command, otherwise undefined so the
+ * caller can fall back to sending the draft.
+ */
+export function selectableSlashCommand<T extends SlashCommandAvailability>(
+  commands: readonly T[],
+  index: number,
+): T | undefined {
+  const highlighted = commands[index];
+  if (highlighted !== undefined && highlighted.availability.state !== "unavailable")
+    return highlighted;
+  return commands.find((command) => command.availability.state !== "unavailable");
+}
+
 export interface SessionCatalogPage<T> {
   readonly sessions: readonly T[];
   readonly nextPageCursor?: string;
