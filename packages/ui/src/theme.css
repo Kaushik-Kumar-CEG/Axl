@@ -28,6 +28,7 @@
   --green: #43b77b;
   --amber: #d6b25e;
   --red: #e4848c;
+  --warning: #d6b25e;
   --surface-hover: #1b1b1e;
   --surface-active: #232327;
   --hover: var(--surface-hover);
@@ -64,6 +65,9 @@
   --accent: #575bb6;
   --accent-strong: #4f53a9;
   --green: #188653;
+  --amber: #8a5a00;
+  --red: #c0323b;
+  --warning: #8a5a00;
   --surface-hover: #eaeaec;
   --surface-active: #e2e2e7;
   --code-bg: #f1f1f3;
