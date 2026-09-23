@@ -98,6 +98,7 @@ import { SessionLifecycle } from "./session-lifecycle.tsx";
 import type { SplitState } from "./split-pane.tsx";
 import { TerminalPane } from "./terminal-pane.tsx";
 import {
+  anyModalOverlayOpen,
   compactNumber,
   consumePendingPromptDeliveries,
   directShellInput,
@@ -110,6 +111,7 @@ import {
   sessionStateHistory,
   sessionTitle,
   sessionUsageStats,
+  topLightOverlay,
   transcriptMessageMatches,
   transcriptPromptBreakpoints,
   type PendingPromptDelivery,
@@ -754,10 +756,28 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
   }, []);
   useEffect(() => {
     const keydown = (event: KeyboardEvent): void => {
+      // A modal dialog that handled the key (for example its own Escape) marks
+      // the event handled; never act on top of it.
+      if (event.defaultPrevented) return;
+      const overlays = {
+        requeue: requeueOpen,
+        sessionLifecycle: sessionLifecycleOpen,
+        newSession: newSessionOpen,
+        commandPalette: commandPaletteOpen,
+        transcriptSearch: transcriptSearchOpen,
+        usage: usageOpen,
+        controlCenter: controlCenter !== undefined,
+        mobileDock,
+        sidebar: sidebarOpen,
+      };
+      const modalOpen = anyModalOverlayOpen(overlays);
       if ((sidebarOpen || mobileDock) && event.key !== "Escape") return;
       if (isModelPickerShortcut(event) && newSessionOpen) {
         event.preventDefault();
         setNewSessionModelPickerOpenRequest((current) => current + 1);
+      } else if (modalOpen) {
+        // Modal dialogs own the keyboard; they handle Escape themselves.
+        return;
       } else if (
         isModelPickerShortcut(event) &&
         !commandPaletteOpen &&
@@ -814,16 +834,22 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
         event.preventDefault();
         void restoreQueuedInputs(false);
       } else if (event.key === "Escape") {
-        if (commandPaletteOpen || transcriptSearchOpen || usageOpen || controlCenter !== undefined || sidebarOpen || mobileDock || requeueOpen || newSessionOpen) {
-          setCommandPaletteOpen(false);
-          setTranscriptSearchOpen(false);
-          setUsageOpen(false);
-          setControlCenter(undefined);
-          setSidebarOpen(false);
-          setMobileDock(false);
-          setRequeueOpen(false);
-          if (!lifecycleBusy) setNewSessionOpen(false);
-        } else if (opened !== undefined && (conversation.activeOperationId !== undefined || pendingInputs.length > 0 || conversation.queue.some((item) => item.status === "queued" || item.status === "paused"))) {
+        const top = topLightOverlay(overlays);
+        if (top !== undefined) {
+          // Close only the topmost light overlay, one Escape at a time.
+          if (top === "commandPalette") setCommandPaletteOpen(false);
+          else if (top === "transcriptSearch") setTranscriptSearchOpen(false);
+          else if (top === "usage") setUsageOpen(false);
+          else if (top === "controlCenter") setControlCenter(undefined);
+          else if (top === "mobileDock") setMobileDock(false);
+          else if (top === "sidebar") setSidebarOpen(false);
+        } else if (
+          opened !== undefined &&
+          (event.target instanceof HTMLElement &&
+            (event.target.closest(".composer") !== null ||
+              event.target.closest(".thread") !== null)) &&
+          (conversation.activeOperationId !== undefined || pendingInputs.length > 0 || conversation.queue.some((item) => item.status === "queued" || item.status === "paused"))
+        ) {
           void restoreQueuedInputs(true);
         }
       }
@@ -834,7 +860,7 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
       if (transcriptNavigationTimer.current !== undefined) clearTimeout(transcriptNavigationTimer.current);
       if (actionNoticeTimer.current !== undefined) clearTimeout(actionNoticeTimer.current);
     };
-  }, [opened, commandPaletteOpen, transcriptSearchOpen, usageOpen, controlCenter, sidebarOpen, mobileDock, requeueOpen, newSessionOpen, sessionSwitching, directBusy, lifecycleBusy, conversation.activeOperationId, conversation.queue, conversation.provider, conversation.model, conversation.thinking, configurationState.pending.length, connection, client, modelCatalog, pendingInputs.length, preview]);
+  }, [opened, commandPaletteOpen, transcriptSearchOpen, usageOpen, controlCenter, sidebarOpen, mobileDock, requeueOpen, newSessionOpen, sessionLifecycleOpen, sessionSwitching, directBusy, lifecycleBusy, conversation.activeOperationId, conversation.queue, conversation.provider, conversation.model, conversation.thinking, configurationState.pending.length, connection, client, modelCatalog, pendingInputs.length, preview]);
 
   useEffect(() => {
     if (!usageOpen) return;
@@ -1157,6 +1183,9 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
   };
 
   const shellPrecondition = (): string | undefined => {
+    if (!hasCapability("session.shell")) {
+      return "Shell access was not granted";
+    }
     if (conversation.activeOperationId !== undefined || pendingTurnDeliveries > 0) {
       return "Interrupt the active operation before running a shell command";
     }

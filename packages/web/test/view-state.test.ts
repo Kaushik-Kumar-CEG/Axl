@@ -7,6 +7,7 @@ import test from "node:test";
 import type { ConversationState, SessionSummary } from "@axl/sdk";
 import { editDiffRows } from "@axl/ui";
 import {
+  anyModalOverlayOpen,
   compactNumber,
   consumePendingPromptDeliveries,
   directShellInput,
@@ -14,15 +15,29 @@ import {
   isScrolledToBottom,
   matchesSession,
   messageBlobs,
+  type OverlayFlags,
   promptDeliveryShortcut,
   restoreDraft,
   sessionStateHistory,
   sessionTitle,
   sessionUsageStats,
+  topLightOverlay,
   transcriptMessageMatches,
   transcriptPromptBreakpoints,
   workspaceTotals,
 } from "../src/view-state.ts";
+
+const NO_OVERLAYS: OverlayFlags = {
+  requeue: false,
+  sessionLifecycle: false,
+  newSession: false,
+  commandPalette: false,
+  transcriptSearch: false,
+  usage: false,
+  controlCenter: false,
+  mobileDock: false,
+  sidebar: false,
+};
 
 const session = {
   cwd: "/workspace/مرحبا",
@@ -293,6 +308,30 @@ test("catalog scan leaves absence unconfirmed when the page cap is hit", async (
   };
   assert.deepEqual(await findSessionInCatalog(fetchPage, "missing", 3), { confirmedAbsent: false });
   assert.equal(pageCount, 3);
+});
+
+test("modal dialogs suppress global shortcuts but light overlays do not", () => {
+  assert.equal(anyModalOverlayOpen(NO_OVERLAYS), false);
+  assert.equal(anyModalOverlayOpen({ ...NO_OVERLAYS, newSession: true }), true);
+  assert.equal(anyModalOverlayOpen({ ...NO_OVERLAYS, requeue: true }), true);
+  assert.equal(anyModalOverlayOpen({ ...NO_OVERLAYS, sessionLifecycle: true }), true);
+  // Light overlays must not block shortcuts by themselves.
+  assert.equal(anyModalOverlayOpen({ ...NO_OVERLAYS, commandPalette: true }), false);
+  assert.equal(anyModalOverlayOpen({ ...NO_OVERLAYS, sidebar: true }), false);
+});
+
+test("Escape closes one light overlay at a time and never a modal dialog", () => {
+  assert.equal(topLightOverlay(NO_OVERLAYS), undefined);
+  // Modal dialogs own their Escape; they are not returned as closable here.
+  assert.equal(topLightOverlay({ ...NO_OVERLAYS, newSession: true }), undefined);
+  assert.equal(topLightOverlay({ ...NO_OVERLAYS, requeue: true }), undefined);
+  // The most modal light overlay closes first.
+  assert.equal(
+    topLightOverlay({ ...NO_OVERLAYS, commandPalette: true, sidebar: true }),
+    "commandPalette",
+  );
+  assert.equal(topLightOverlay({ ...NO_OVERLAYS, usage: true, sidebar: true }), "usage");
+  assert.equal(topLightOverlay({ ...NO_OVERLAYS, sidebar: true }), "sidebar");
 });
 
 test("workspace totals combine additions and deletions across files", () => {

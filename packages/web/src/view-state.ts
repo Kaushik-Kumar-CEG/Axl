@@ -326,6 +326,54 @@ export function compactNumber(value: number): string {
   return value >= 1000 ? `${(value / 1000).toFixed(value >= 10_000 ? 0 : 1)}k` : String(value);
 }
 
+/**
+ * Overlay surfaces that can be open at once. Modal dialogs own their own Escape
+ * key (they render an in-dialog handler), so they are not force-closed by the
+ * global shortcut handler; the "light" overlays below have no local handler and
+ * are dismissed by the global Escape.
+ */
+export interface OverlayFlags {
+  readonly requeue: boolean;
+  readonly sessionLifecycle: boolean;
+  readonly newSession: boolean;
+  readonly commandPalette: boolean;
+  readonly transcriptSearch: boolean;
+  readonly usage: boolean;
+  readonly controlCenter: boolean;
+  readonly mobileDock: boolean;
+  readonly sidebar: boolean;
+}
+
+export type OverlayId = keyof OverlayFlags;
+
+// Modal dialogs render their own focus trap and Escape handler.
+const MODAL_OVERLAYS: readonly OverlayId[] = ["requeue", "sessionLifecycle", "newSession"];
+
+// Light overlays have no local Escape handler; the global handler dismisses the
+// topmost one, most modal first.
+const LIGHT_OVERLAY_PRIORITY: readonly OverlayId[] = [
+  "commandPalette",
+  "transcriptSearch",
+  "usage",
+  "controlCenter",
+  "mobileDock",
+  "sidebar",
+];
+
+/** True when a modal dialog owns the keyboard, so global shortcuts must yield. */
+export function anyModalOverlayOpen(flags: OverlayFlags): boolean {
+  return MODAL_OVERLAYS.some((id) => flags[id]);
+}
+
+/**
+ * The single light overlay the global Escape handler should close, or undefined
+ * when none is open. Escape closes one overlay at a time instead of collapsing
+ * every surface at once, and it never force-closes a modal dialog.
+ */
+export function topLightOverlay(flags: OverlayFlags): OverlayId | undefined {
+  return LIGHT_OVERLAY_PRIORITY.find((id) => flags[id]);
+}
+
 /** Distance from the bottom, in pixels, that still counts as "at the bottom". */
 export const SCROLL_STICK_THRESHOLD = 64;
 
