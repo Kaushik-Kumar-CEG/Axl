@@ -48,12 +48,7 @@ import {
 
 import { BrowserPane, type BrowserPaneState, EMPTY_BROWSER_STATE } from "./browser-pane.tsx";
 import { CommandPalette } from "./command-palette.tsx";
-import {
-  filterCommands,
-  type WebTheme,
-  webPresentationCommands,
-  workspaceReviewScope,
-} from "./commands.ts";
+import { filterCommands, webPresentationCommands, workspaceReviewScope } from "./commands.ts";
 import type { ControlCenterTab } from "./control-center.tsx";
 import { Dock } from "./dock.tsx";
 import { trapDialogFocus } from "./dialog-focus.ts";
@@ -97,6 +92,8 @@ import {
 import { SessionLifecycle } from "./session-lifecycle.tsx";
 import type { SplitState } from "./split-pane.tsx";
 import { TerminalPane } from "./terminal-pane.tsx";
+import { useActionNotice } from "./use-action-notice.ts";
+import { useWebTheme } from "./use-web-theme.ts";
 import {
   anyModalOverlayOpen,
   compactNumber,
@@ -270,7 +267,7 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
   const [sidebarWidth, setSidebarWidth] = useState(initialLayout.sidebarWidth);
   const [dockWidth, setDockWidth] = useState(initialLayout.dockWidth);
   const [changesView, setChangesView] = useState<"files" | "all">(initialLayout.changesView);
-  const [theme, setTheme] = useState<WebTheme>(initialLayout.theme);
+  const { theme, setTheme } = useWebTheme(initialLayout.theme);
   const [paneLayout, setPaneLayout] = useState<PaneLayout>(() => createPaneLayout(initialLayout.panes));
   const [browserPane, setBrowserPane] = useState<BrowserPaneState>(EMPTY_BROWSER_STATE);
   const [mobileDock, setMobileDock] = useState(false);
@@ -340,7 +337,7 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
   const [workspaceCheckpointEnabled, setWorkspaceCheckpointEnabled] = useState<boolean>();
   const [connection, setConnection] = useState<ConnectionState>(preview ? "connected" : "connecting");
   const [error, setError] = useState<string>();
-  const [actionNotice, setActionNotice] = useState<string>();
+  const { actionNotice, showActionNotice } = useActionNotice();
   const [commands, setCommands] = useState<readonly EffectiveCommand[]>(preview?.commands ?? []);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [commandPaletteError, setCommandPaletteError] = useState<string>();
@@ -369,7 +366,6 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
   // bottom, so scrolling up during a response is never hijacked.
   const stickToBottom = useRef(true);
   const transcriptNavigationTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const actionNoticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const mobileMenu = useRef<HTMLButtonElement>(null);
   const sidebarPanel = useRef<HTMLElement>(null);
   const sidebarClose = useRef<HTMLButtonElement>(null);
@@ -382,16 +378,6 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
   const artifactInput = useRef<HTMLInputElement>(null);
   const sidebarWasOpen = useRef(false);
 
-  useEffect(() => {
-    const media = matchMedia("(prefers-color-scheme: dark)");
-    const apply = (): void => {
-      document.documentElement.dataset.theme = theme === "system" ? (media.matches ? "dark" : "light") : theme;
-    };
-    apply();
-    if (theme !== "system") return;
-    media.addEventListener("change", apply);
-    return () => media.removeEventListener("change", apply);
-  }, [theme]);
 
   const listSessionsPage = (
     current: AxlClient,
@@ -875,7 +861,6 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
     return () => {
       removeEventListener("keydown", keydown);
       if (transcriptNavigationTimer.current !== undefined) clearTimeout(transcriptNavigationTimer.current);
-      if (actionNoticeTimer.current !== undefined) clearTimeout(actionNoticeTimer.current);
     };
   }, [opened, commandPaletteOpen, transcriptSearchOpen, usageOpen, controlCenter, sidebarOpen, mobileDock, requeueOpen, newSessionOpen, sessionLifecycleOpen, sessionSwitching, directBusy, lifecycleBusy, conversation.activeOperationId, conversation.queue, conversation.provider, conversation.model, conversation.thinking, configurationState.pending.length, connection, client, modelCatalog, pendingInputs.length, preview]);
 
@@ -1459,12 +1444,6 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
     } catch {
       // The SDK controller publishes the failure beside the originating field.
     }
-  };
-
-  const showActionNotice = (message: string): void => {
-    setActionNotice(message);
-    if (actionNoticeTimer.current !== undefined) clearTimeout(actionNoticeTimer.current);
-    actionNoticeTimer.current = setTimeout(() => setActionNotice(undefined), 1800);
   };
 
   const copyMessage = async (text: string): Promise<void> => {
