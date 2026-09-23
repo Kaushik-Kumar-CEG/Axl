@@ -15,9 +15,11 @@ import {
   isScrolledToBottom,
   matchesSession,
   messageBlobs,
+  nextSelectableSlashIndex,
   type OverlayFlags,
   promptDeliveryShortcut,
   restoreDraft,
+  selectableSlashCommand,
   sessionStateHistory,
   sessionTitle,
   sessionUsageStats,
@@ -342,4 +344,23 @@ test("workspace totals combine additions and deletions across files", () => {
     ] as never),
     { additions: 2, deletions: 1 },
   );
+});
+
+test("slash-command navigation and selection skip unavailable commands", () => {
+  const commands = [
+    { availability: { state: "available" } },
+    { availability: { state: "unavailable" } },
+    { availability: { state: "available" } },
+  ] as const;
+  // Arrow-down from the first available command skips the unavailable middle one.
+  assert.equal(nextSelectableSlashIndex(commands, 0, 1), 2);
+  // Arrow-up wraps past the unavailable entry back to the first available one.
+  assert.equal(nextSelectableSlashIndex(commands, 2, -1), 0);
+  // A highlighted unavailable command falls back to the first available command.
+  assert.equal(selectableSlashCommand(commands, 1), commands[0]);
+  assert.equal(selectableSlashCommand(commands, 2), commands[2]);
+  // No selectable command yields undefined and a stable index.
+  const unavailable = [{ availability: { state: "unavailable" } }] as const;
+  assert.equal(selectableSlashCommand(unavailable, 0), undefined);
+  assert.equal(nextSelectableSlashIndex(unavailable, 0, 1), 0);
 });
