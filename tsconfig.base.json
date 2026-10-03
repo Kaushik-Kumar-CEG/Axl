@@ -15,6 +15,9 @@
       "@axl/extension-host": ["./packages/extensions/host/src/index.ts"],
       "@axl/extension-lounge": ["./packages/extensions/lounge/src/index.ts"],
       "@axl/extension-lounge/terminal": ["./packages/extensions/lounge/src/extension.ts"],
+      "@axl/extension-lounge/chess-puzzles": [
+        "./packages/extensions/lounge/src/chess-puzzles.generated.ts"
+      ],
       "@axl/extension-mcp": ["./packages/extensions/mcp/src/index.ts"],
       "@axl/extension-prompts": ["./packages/extensions/prompts/src/index.ts"],
       "@axl/extension-skills": ["./packages/extensions/skills/src/index.ts"],
