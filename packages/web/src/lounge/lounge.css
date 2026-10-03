@@ -76,8 +76,8 @@
 .art-wordle { --t: 28px; display: flex; gap: 4px; }
 .art-wordle .lg-tile { font-size: 15px; }
 .art-multi { grid-template-columns: repeat(4, auto); gap: 6px; align-content: center; }
-.art-multi div { display: grid; grid-template-columns: repeat(5, 5px); gap: 1.5px; }
-.art-multi i { width: 5px; height: 5px; border-radius: 1px; background: var(--lg-line); }
+.art-multi div { display: grid; grid-template-columns: repeat(5, 8px); gap: 2px; }
+.art-multi i { width: 8px; height: 8px; border-radius: 2px; background: var(--lg-line); }
 .art-multi i.exact { background: var(--lg-correct); } .art-multi i.present { background: var(--lg-present); }
 .art-hive { position: relative; width: 100%; }
 .art-hive i { position: absolute; top: calc(50% - 15px); left: calc(50% - 13px); display: grid; width: 26px; height: 30px; place-items: center; background: color-mix(in srgb, var(--text) 16%, var(--raised)); font-size: 12px; font-style: normal; font-weight: 750; clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); transform: rotate(var(--a, 0deg)) translateX(28px) rotate(calc(var(--a, 0deg) * -1)); text-transform: uppercase; }

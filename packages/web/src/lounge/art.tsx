@@ -54,10 +54,10 @@ export function GameArt({ id }: { readonly id: string }): React.JSX.Element {
     return (
       <div className="art art-multi" aria-hidden="true">
         {[
-          ["", "exact", "", "present", ""],
-          ["present", "", "exact", "", ""],
-          ["exact", "exact", "present", "", "exact"],
-          ["", "present", "", "exact", "exact"],
+          ["", "exact", "", "present", "", "present", "", "exact", "", "", "exact", "present", "", "", "exact"],
+          ["present", "", "exact", "", "", "", "exact", "", "present", "", "", "", "", "exact", "present"],
+          ["exact", "exact", "present", "", "exact", "", "", "", "exact", "present", "exact", "", "present", "", ""],
+          ["", "present", "", "exact", "exact", "exact", "present", "", "", "exact", "", "", "exact", "present", ""],
         ].map((board, boardIndex) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: static art
           <div key={boardIndex}>
