@@ -100,9 +100,9 @@ export const ANSI_PALETTE: Palette = {
             : role === "selection"
               ? 25
               : role === "success"
-                ? 22
+                ? 28
                 : role === "warning"
-                  ? 58
+                  ? 94
                   : 52;
     return `\x1b[48;5;${color}m${text}\x1b[49m`;
   },

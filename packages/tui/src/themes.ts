@@ -62,8 +62,8 @@ const axl: Palette = {
     surfaceAlternate: "#24343a",
     accent: "#164e63",
     selection: "#155e75",
-    success: "#14532d",
-    warning: "#713f12",
+    success: "#2e7d32",
+    warning: "#946f00",
     error: "#7f1d1d",
   }),
   searchMatch: background("#3f3f46"),
@@ -106,8 +106,8 @@ const ember: Palette = {
     surfaceAlternate: "#342a22",
     accent: "#7c2d12",
     selection: "#9a3412",
-    success: "#365314",
-    warning: "#713f12",
+    success: "#2e7d32",
+    warning: "#946f00",
     error: "#7f1d1d",
   }),
   searchMatch: background("#4a2c1c"),
@@ -150,8 +150,8 @@ const ocean: Palette = {
     surfaceAlternate: "#17384a",
     accent: "#075985",
     selection: "#1d4ed8",
-    success: "#065f46",
-    warning: "#713f12",
+    success: "#1b7f5c",
+    warning: "#946f00",
     error: "#7f1d1d",
   }),
   searchMatch: background("#173b57"),
@@ -194,8 +194,8 @@ const grove: Palette = {
     surfaceAlternate: "#303b28",
     accent: "#3f6212",
     selection: "#4d7c0f",
-    success: "#166534",
-    warning: "#713f12",
+    success: "#2e7d32",
+    warning: "#946f00",
     error: "#7f1d1d",
   }),
   searchMatch: background("#334025"),
@@ -255,8 +255,8 @@ const dark: Palette = {
     surfaceAlternate: "#3c3836",
     accent: "#3f5f66",
     selection: "#7c4f2f",
-    success: "#3f5f36",
-    warning: "#735f28",
+    success: "#3f7f3a",
+    warning: "#8a6c1c",
     error: "#743f3b",
   }),
   searchMatch: background(gruvbox.bg1),
@@ -318,8 +318,8 @@ const light: Palette = {
     surfaceAlternate: "#9aaa88",
     accent: "#bae6fd",
     selection: "#7dd3fc",
-    success: "#bbf7d0",
-    warning: "#fde68a",
+    success: "#86efac",
+    warning: "#fde047",
     error: "#fecaca",
   }),
   searchMatch: background("#e0f2fe"),
@@ -375,9 +375,9 @@ const system: Palette = {
             : role === "selection"
               ? 25
               : role === "success"
-                ? 22
+                ? 28
                 : role === "warning"
-                  ? 58
+                  ? 94
                   : 52;
     return `\x1b[48;5;${color}m${text}\x1b[49m`;
   },
@@ -454,7 +454,9 @@ const plain: Palette = {
         ? `\x1b[7m${text}\x1b[27m`
         : role === "selection" || role === "error"
           ? `\x1b[1;7m${text}\x1b[22;27m`
-          : `\x1b[4m${text}\x1b[24m`,
+          : role === "success"
+            ? `\x1b[1;4m${text}\x1b[22;24m`
+            : `\x1b[4m${text}\x1b[24m`,
   searchMatch: (text) => `\x1b[4m${text}\x1b[24m`,
   searchCurrent: (text) => `\x1b[1;7m${text}\x1b[22;27m`,
 };

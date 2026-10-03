@@ -312,13 +312,12 @@ test("winning and losing render explicit results and accessible evidence", () =>
   assert.equal(serialized(won).status, "won");
   const wonText = text(won.render({ width: 80, height: 18 }));
   assert.match(wonText, /SOLVED! · 1 GUESS/);
-  assert.equal(
-    won
-      .render({ width: 80, height: 18 })
-      .lines.flat()
-      .find((item) => item.text.includes(" N "))?.style,
-    "success",
-  );
+  const exact = won
+    .render({ width: 80, height: 18 })
+    .lines.flat()
+    .find((item) => item.text.includes(" N "));
+  assert.equal(exact?.background, "success");
+  assert.equal(exact?.emphasis, "strong");
 
   const lost = activity().create(context());
   lost.render({ width: 80, height: 18 });
@@ -327,7 +326,7 @@ test("winning and losing render explicit results and accessible evidence", () =>
   assert.match(text(lost.render({ width: 80, height: 18 })), /GAME OVER · ANSWER: NEEDY/);
 });
 
-test("neutral tiles and semantic evidence remain distinct without heavy backgrounds", () => {
+test("neutral tiles stay plain while exact and present tiles are filled", () => {
   const instance = codewordActivity({
     selection: { kind: "practice", algorithmVersion: 1, seed: 6699 },
   }).create(context());
@@ -342,8 +341,10 @@ test("neutral tiles and semantic evidence remain distinct without heavy backgrou
   const scored = instance.render({ width: 80, height: 18 });
   assert.match(text(scored), /┃ A ┃ ║ L ║ │ L │ │ E │ ┃ E ┃/);
   const present = scored.lines.flat().find(({ text }) => text.includes("║ L ║"));
-  assert.equal(present?.style, "warning");
+  assert.equal(present?.background, "warning");
   assert.equal(present?.emphasis, "strong");
+  const absent = scored.lines.flat().find(({ text }) => text.includes("│ L │"));
+  assert.equal(absent?.background, undefined);
 });
 
 test("hard-mode feedback is rendered without consuming a forbidden guess", () => {

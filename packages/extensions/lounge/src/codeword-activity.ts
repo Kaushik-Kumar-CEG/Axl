@@ -55,8 +55,14 @@ function span(
   text: string,
   style: ActivitySpan["style"] = "text",
   emphasis: ActivitySpan["emphasis"] = "none",
+  background?: ActivitySpan["background"],
 ): ActivitySpan {
-  return Object.freeze({ text, style, emphasis });
+  return Object.freeze({
+    text,
+    style,
+    emphasis,
+    ...(background === undefined ? {} : { background }),
+  });
 }
 
 function line(...spans: readonly ActivitySpan[]): readonly ActivitySpan[] {
@@ -126,14 +132,17 @@ function tileAppearance(
 ): {
   readonly style: ActivitySpan["style"];
   readonly emphasis: ActivitySpan["emphasis"];
+  /** Filled tiles keep letters readable. Shape and symbols carry the meaning without color. */
+  readonly background?: ActivitySpan["background"];
   readonly top: string;
   readonly bottom: string;
   readonly sides: readonly [string, string];
 } {
   if (score === "exact") {
     return {
-      style: "success",
+      style: "text",
       emphasis: "strong",
+      background: "success",
       top: "┏━━━┓",
       bottom: "┗━━━┛",
       sides: ["┃", "┃"],
@@ -141,8 +150,9 @@ function tileAppearance(
   }
   if (score === "present") {
     return {
-      style: "warning",
+      style: "text",
       emphasis: "strong",
+      background: "warning",
       top: "╔═══╗",
       bottom: "╚═══╝",
       sides: ["║", "║"],
@@ -198,15 +208,20 @@ function boardRows(
       for (let column = 0; column < CODEWORD_LENGTH; column += 1) {
         const appearance = appearances[column] as (typeof appearances)[number];
         const letter = word[column]?.toUpperCase() ?? " ";
-        top.push(span(appearance.top, appearance.style, appearance.emphasis));
+        top.push(
+          span(appearance.top, appearance.style, appearance.emphasis, appearance.background),
+        );
         middle.push(
           span(
             `${appearance.sides[0]} ${letter} ${appearance.sides[1]}`,
             appearance.style,
             appearance.emphasis,
+            appearance.background,
           ),
         );
-        bottom.push(span(appearance.bottom, appearance.style, appearance.emphasis));
+        bottom.push(
+          span(appearance.bottom, appearance.style, appearance.emphasis, appearance.background),
+        );
         if (column < CODEWORD_LENGTH - 1) {
           top.push(span(" "));
           middle.push(span(" "));
@@ -227,6 +242,7 @@ function boardRows(
             `${appearance.sides[0]} ${letter} ${appearance.sides[1]}`,
             appearance.style,
             appearance.emphasis,
+            appearance.background,
           ),
         );
         if (column < CODEWORD_LENGTH - 1) cells.push(span(" "));
@@ -252,10 +268,18 @@ function keyboardRows(
     const rendered = keys.map((key) => {
       const score = key.length === 1 ? known.get(key) : undefined;
       const label = key === "ENTER" ? "ENTER" : key === "⌫" ? " ⌫ " : ` ${key.toUpperCase()} `;
+      const filled = score === "exact" || score === "present";
       return span(
         label,
-        score === undefined ? (key.length === 1 ? "text" : "muted") : scoreStyle(score),
+        filled
+          ? "text"
+          : score === undefined
+            ? key.length === 1
+              ? "text"
+              : "muted"
+            : scoreStyle(score),
         score === undefined ? "none" : "strong",
+        score === "exact" ? "success" : score === "present" ? "warning" : undefined,
       );
     });
     const rowWidth =
