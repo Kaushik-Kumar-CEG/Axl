@@ -468,7 +468,8 @@ export function sudokuActivity(options: SudokuActivityOptions = {}): TerminalAct
         invalidate();
       };
 
-      if (context.storage !== undefined) {
+      const load = (): void => {
+        if (context.storage === undefined) return;
         writeQueue = context.storage
           .read(context.signal)
           .then((stored) => {
@@ -495,7 +496,8 @@ export function sudokuActivity(options: SudokuActivityOptions = {}): TerminalAct
             panel = "storage-error";
             invalidate();
           });
-      }
+      };
+      load();
 
       return {
         render(viewport) {
@@ -636,6 +638,7 @@ export function sudokuActivity(options: SudokuActivityOptions = {}): TerminalAct
           focused = false;
         },
         resume: () => {
+          if (panel === "loading") load();
           active = true;
           focused = true;
           invalidate();

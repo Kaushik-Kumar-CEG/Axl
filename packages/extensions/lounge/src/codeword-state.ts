@@ -277,6 +277,16 @@ function completionKey(state: CodewordState): string {
     : `practice:${state.dictionaryRevision}:${state.selection.algorithmVersion}:${state.selection.seed}`;
 }
 
+/** Drops the oldest practice records first so daily records keep feeding the streak. */
+function boundCompletions<T extends { readonly dailyDate?: string }>(records: readonly T[]): T[] {
+  const kept = [...records];
+  while (kept.length > MAX_COMPLETION_RECORDS) {
+    const oldestPractice = kept.findIndex((record) => record.dailyDate === undefined);
+    kept.splice(oldestPractice < 0 ? 0 : oldestPractice, 1);
+  }
+  return kept;
+}
+
 export function updateCodewordSave(
   document: CodewordSaveDocument,
   state: CodewordState,
@@ -285,11 +295,8 @@ export function updateCodewordSave(
   const key = completionKey(state);
   const alreadyRecorded = document.completions.some((record) => record.key === key);
   const completionAdded = state.status !== "active" && !alreadyRecorded;
-  if (completionAdded && document.completions.length >= MAX_COMPLETION_RECORDS) {
-    throw new CodewordSaveError("corrupt", "Codeword completion history is full");
-  }
   const completions = completionAdded
-    ? [
+    ? boundCompletions([
         ...document.completions,
         Object.freeze({
           key,
@@ -297,7 +304,7 @@ export function updateCodewordSave(
           attempts: state.guesses.length,
           ...(state.selection.kind === "daily" ? { dailyDate: state.selection.utcDate } : {}),
         }),
-      ]
+      ])
     : document.completions;
   return {
     document: Object.freeze({
@@ -320,12 +327,9 @@ export function mergeCodewordCompletions(
 ): CodewordSaveDocument {
   const byKey = new Map(latest.completions.map((record) => [record.key, record]));
   for (const record of proposed.completions) byKey.set(record.key, record);
-  const completions = [...byKey.values()].sort((left, right) =>
+  const completions = boundCompletions([...byKey.values()]).sort((left, right) =>
     left.key < right.key ? -1 : left.key > right.key ? 1 : 0,
   );
-  if (completions.length > MAX_COMPLETION_RECORDS) {
-    throw new CodewordSaveError("corrupt", "Codeword completion history is full");
-  }
   return Object.freeze({
     ...latest,
     completions: Object.freeze(completions),

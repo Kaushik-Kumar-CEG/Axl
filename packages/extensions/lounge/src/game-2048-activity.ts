@@ -486,7 +486,8 @@ export function game2048Activity(options: Game2048ActivityOptions = {}): Termina
         context.invalidate();
       };
 
-      if (context.storage !== undefined) {
+      const load = (): void => {
+        if (context.storage === undefined) return;
         writeQueue = context.storage
           .read(context.signal)
           .then((stored) => {
@@ -515,7 +516,8 @@ export function game2048Activity(options: Game2048ActivityOptions = {}): Termina
             panel = "storage-error";
             invalidate();
           });
-      }
+      };
+      load();
 
       return {
         render(viewport) {
@@ -664,6 +666,7 @@ export function game2048Activity(options: Game2048ActivityOptions = {}): Termina
           clearAnimation();
         },
         resume: () => {
+          if (panel === "loading") load();
           active = true;
           focused = true;
         },

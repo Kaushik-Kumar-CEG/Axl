@@ -829,7 +829,8 @@ export function minesweeperActivity(options: MinesweeperActivityOptions = {}): T
         }
       };
 
-      if (context.storage !== undefined) {
+      const load = (): void => {
+        if (context.storage === undefined) return;
         writeQueue = context.storage
           .read(context.signal)
           .then((stored) => {
@@ -859,7 +860,8 @@ export function minesweeperActivity(options: MinesweeperActivityOptions = {}): T
             panel = "storage-error";
             invalidate();
           });
-      }
+      };
+      load();
 
       return {
         render(viewport) {
@@ -979,6 +981,7 @@ export function minesweeperActivity(options: MinesweeperActivityOptions = {}): T
           stopTimer();
         },
         resume: () => {
+          if (panel === "loading") load();
           active = true;
           focused = true;
           scheduleTimer();

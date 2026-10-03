@@ -17,6 +17,7 @@ import {
 } from "../src/multiword.ts";
 import {
   createEmptyMultiwordSave,
+  MULTIWORD_MAX_COMPLETIONS,
   MultiwordSaveError,
   mergeMultiwordCompletions,
   multiwordSaveJson,
@@ -161,4 +162,34 @@ test("merging keeps the newest save and unions completions", () => {
   const left = updateMultiwordSave(createEmptyMultiwordSave(), finish(1), prefs).document;
   const right = updateMultiwordSave(createEmptyMultiwordSave(), finish(2), prefs).document;
   assert.equal(mergeMultiwordCompletions(left, right).completions.length, 2);
+});
+
+test("a full history drops the oldest practice record and keeps daily records", () => {
+  const records = Array.from({ length: MULTIWORD_MAX_COMPLETIONS }, (_, index) => ({
+    key: index === 0 ? "daily:2020-01-01:2" : `practice:old:${index}`,
+    boards: 2 as const,
+    won: true,
+    attempts: 3,
+    solved: 2,
+    ...(index === 0 ? { dailyDate: "2020-01-01" } : {}),
+  }));
+  const full = { ...createEmptyMultiwordSave(), completions: records };
+  let state = createMultiword(practice(2, 99));
+  for (const answer of state.answers) state = guess(state, answer);
+  const { document, completionAdded } = updateMultiwordSave(full, state, {
+    puzzle: "practice",
+    boards: 2,
+  });
+  assert.equal(completionAdded, true);
+  assert.equal(document.completions.length, MULTIWORD_MAX_COMPLETIONS);
+  assert.equal(document.completions[0]?.key, "daily:2020-01-01:2");
+  assert.equal(
+    document.completions.some((record) => record.key === "practice:old:1"),
+    false,
+  );
+  assert.equal(document.completions.at(-1)?.won, true);
+  assert.equal(
+    mergeMultiwordCompletions(full, document).completions.length,
+    MULTIWORD_MAX_COMPLETIONS,
+  );
 });

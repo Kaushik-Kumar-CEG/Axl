@@ -726,6 +726,9 @@ export function createChessPuzzleSaveWriter(
         latest === undefined
           ? createEmptyChessPuzzleSave()
           : parseChessPuzzleSave(latest.value, catalog).document;
+      const stored = new Set(latestDocument.completions.map((record) => record[0]));
+      // Storage already holds every completion. Writing again would only bump the revision.
+      if (proposed.completions.every((record) => stored.has(record[0]))) return;
       const merged = mergeChessPuzzleCompletions(latestDocument, proposed);
       try {
         const stored = await storage.write(

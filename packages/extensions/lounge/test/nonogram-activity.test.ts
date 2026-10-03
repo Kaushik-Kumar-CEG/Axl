@@ -4,14 +4,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type {
-  ActivityContext,
-  ActivityFrame,
-  ActivityInput,
-  ActivityStorage,
-  ActivityStoredValue,
-  JsonValue,
-  TerminalActivityInstance,
+import {
+  type ActivityContext,
+  type ActivityFrame,
+  type ActivityInput,
+  type ActivityStorage,
+  ActivityStorageError,
+  type ActivityStoredValue,
+  type JsonValue,
+  type TerminalActivityInstance,
 } from "@axl/extension-api";
 
 import {
@@ -156,4 +157,37 @@ test("a corrupt save is surfaced and can be erased", async () => {
   await settle();
   assert.equal(storage.stored, undefined);
   assert.match(text(instance.render({ width: 80, height: 20 })), /NONOGRAM/);
+});
+
+test("an initial read cancelled by a pause is retried when the activity resumes", async () => {
+  const storage = new MemoryStorage();
+  let controller = new AbortController();
+  let reads = 0;
+  const gated: ActivityStorage = {
+    read: (signal) => {
+      reads += 1;
+      if (reads > 1) return storage.read();
+      return new Promise((_, reject) => {
+        signal?.addEventListener("abort", () =>
+          reject(new ActivityStorageError("aborted", "Activity storage operation was aborted")),
+        );
+      });
+    },
+    write: (expected, schemaVersion, value) => storage.write(expected, schemaVersion, value),
+    reset: () => storage.reset(),
+  };
+  const base = context(storage);
+  const live: ActivityContext = Object.defineProperty({ ...base, storage: gated }, "signal", {
+    get: () => controller.signal,
+  });
+  const instance = nonogramActivity().create(live);
+  assert.match(text(instance.render({ width: 80, height: 20 })), /Loading/);
+  controller.abort();
+  instance.pause("attention");
+  await settle();
+  controller = new AbortController();
+  instance.resume();
+  await settle();
+  assert.equal(reads, 2);
+  assert.doesNotMatch(text(instance.render({ width: 80, height: 20 })), /Loading/);
 });

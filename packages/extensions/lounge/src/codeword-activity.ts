@@ -768,7 +768,7 @@ export function codewordActivity(options: CodewordActivityOptions = {}): Termina
         start({ kind: "practice", algorithmVersion: 1, seed: practiceSeed() });
       };
 
-      if (panel === "loading") {
+      const load = (): void => {
         const loadSignal = context.signal;
         writeQueue = (async () => {
           const stored = await context.storage?.read(loadSignal);
@@ -798,7 +798,8 @@ export function codewordActivity(options: CodewordActivityOptions = {}): Termina
           panel = "storage-error";
           context.invalidate();
         });
-      }
+      };
+      if (panel === "loading") load();
 
       return {
         render(viewport) {
@@ -1010,6 +1011,7 @@ export function codewordActivity(options: CodewordActivityOptions = {}): Termina
           stopDecorative(true);
         },
         resume: () => {
+          if (panel === "loading") load();
           activityActive = true;
         },
         serialize: () => codewordSaveJson(document),

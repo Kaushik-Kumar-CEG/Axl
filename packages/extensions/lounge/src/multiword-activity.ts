@@ -385,12 +385,12 @@ export function multiwordActivity(options: MultiwordActivityOptions = {}): Termi
           state.boards === selection.boards;
         if (!sameDaily) state = createMultiword(selection);
         panel = "game";
-        saveWarning = undefined;
+        if (!storageBlocked) saveWarning = undefined;
         persist();
         invalidate();
       };
 
-      if (panel === "loading") {
+      const load = (): void => {
         const signal = context.signal;
         writeQueue = (async () => {
           const stored = await context.storage?.read(signal);
@@ -416,7 +416,8 @@ export function multiwordActivity(options: MultiwordActivityOptions = {}): Termi
           panel = "storage-error";
           invalidate();
         });
-      }
+      };
+      if (panel === "loading") load();
 
       return {
         render(viewport) {
@@ -456,6 +457,7 @@ export function multiwordActivity(options: MultiwordActivityOptions = {}): Termi
                   state = undefined;
                   storageError = undefined;
                   storageBlocked = false;
+                  saveWarning = undefined;
                   panel = "picker";
                   invalidate();
                 })
@@ -516,6 +518,7 @@ export function multiwordActivity(options: MultiwordActivityOptions = {}): Termi
           live = false;
         },
         resume: () => {
+          if (panel === "loading") load();
           live = true;
         },
         serialize: () => multiwordSaveJson(document),

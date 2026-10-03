@@ -207,7 +207,11 @@ export function reduceNonogram(state: NonogramState, action: NonogramAction): No
   if (action.type === "undo") {
     const previous = state.history.at(-1);
     if (previous === undefined) return state;
-    return restoreFrom(state, previous, state.history.slice(0, -1), state.hintCount);
+    // A hint cannot be undone. Keep hinted cells so the board still matches the solution.
+    const cells = previous.map((cell, index) =>
+      state.hinted[index] ? (state.cells[index] as NonogramCell) : cell,
+    );
+    return restoreFrom(state, cells, state.history.slice(0, -1), state.hintCount);
   }
   if (action.type === "reset") {
     const cells = state.cells.map((cell, index) =>

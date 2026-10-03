@@ -276,12 +276,12 @@ export function honeycombActivity(options: HoneycombActivityOptions = {}): Termi
           state.selection.utcDate === selection.utcDate;
         if (!sameDaily) state = createHoneycomb(selection);
         panel = "game";
-        warning = undefined;
+        if (!blocked) warning = undefined;
         persist();
         invalidate();
       };
 
-      if (panel === "loading") {
+      const load = (): void => {
         const signal = context.signal;
         writeQueue = (async () => {
           const stored = await context.storage?.read(signal);
@@ -307,7 +307,8 @@ export function honeycombActivity(options: HoneycombActivityOptions = {}): Termi
           panel = "storage-error";
           invalidate();
         });
-      }
+      };
+      if (panel === "loading") load();
 
       return {
         render(viewport) {
@@ -346,6 +347,7 @@ export function honeycombActivity(options: HoneycombActivityOptions = {}): Termi
                   state = undefined;
                   storageError = undefined;
                   blocked = false;
+                  warning = undefined;
                   panel = "picker";
                   invalidate();
                 })
@@ -385,7 +387,7 @@ export function honeycombActivity(options: HoneycombActivityOptions = {}): Termi
           else return;
           if (state !== before) {
             if (state.issue === undefined) {
-              warning = undefined;
+              if (!blocked) warning = undefined;
               persist();
             }
             invalidate();
@@ -396,6 +398,7 @@ export function honeycombActivity(options: HoneycombActivityOptions = {}): Termi
           live = false;
         },
         resume: () => {
+          if (panel === "loading") load();
           live = true;
         },
         serialize: () => honeycombSaveJson(document),

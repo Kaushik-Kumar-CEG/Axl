@@ -287,12 +287,12 @@ export function nonogramActivity(options: NonogramActivityOptions = {}): Termina
         state = createNonogram(preferences.size, nextSeed(), document.solved);
         cursor = 0;
         panel = "game";
-        message = undefined;
+        if (!blocked) message = undefined;
         persist();
         invalidate();
       };
 
-      if (panel === "loading") {
+      const load = (): void => {
         const signal = context.signal;
         writeQueue = (async () => {
           const stored = await context.storage?.read(signal);
@@ -318,14 +318,15 @@ export function nonogramActivity(options: NonogramActivityOptions = {}): Termina
           panel = "storage-error";
           invalidate();
         });
-      }
+      };
+      if (panel === "loading") load();
 
       const apply = (action: NonogramAction): void => {
         if (state === undefined) return;
         const next = reduceNonogram(state, action);
         if (next === state) return;
         state = next;
-        message = undefined;
+        if (!blocked) message = undefined;
         persist();
       };
 
@@ -372,6 +373,7 @@ export function nonogramActivity(options: NonogramActivityOptions = {}): Termina
                   state = undefined;
                   storageError = undefined;
                   blocked = false;
+                  message = undefined;
                   panel = "picker";
                   invalidate();
                 })
@@ -427,6 +429,7 @@ export function nonogramActivity(options: NonogramActivityOptions = {}): Termina
           live = false;
         },
         resume: () => {
+          if (panel === "loading") load();
           live = true;
         },
         serialize: () => nonogramSaveJson(document),

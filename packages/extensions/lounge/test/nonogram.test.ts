@@ -119,3 +119,15 @@ test("saves restore exactly, track solved puzzles, and fail loudly when damaged"
   assert.throws(() => parseNonogramSave(broken as never), NonogramSaveError);
   assert.throws(() => parseNonogramSave({ version: 9 }), { code: "future-version" });
 });
+
+test("undoing after a hint keeps the hinted cell and the save still opens", () => {
+  let state = reduceNonogram(createNonogram(5, 7), { type: "paint", indices: [0], value: 2 });
+  state = reduceNonogram(state, { type: "hint" });
+  const hinted = state.hinted.indexOf(true);
+  const hintedValue = state.cells[hinted];
+  state = reduceNonogram(state, { type: "undo" });
+  assert.equal(state.cells[hinted], hintedValue);
+  const document = updateNonogramSave(createEmptyNonogramSave(), state, { size: 5 });
+  const restored = parseNonogramSave(nonogramSaveJson(document));
+  assert.deepEqual(restored.state?.cells, state.cells);
+});

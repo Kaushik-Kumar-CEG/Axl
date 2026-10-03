@@ -256,6 +256,16 @@ function gameRecord(state: MultiwordState, completionRecorded: boolean): SavedGa
   });
 }
 
+/** Drops the oldest practice records first so daily records keep feeding the streak. */
+function boundCompletions(records: readonly MultiwordCompletion[]): MultiwordCompletion[] {
+  const kept = [...records];
+  while (kept.length > MULTIWORD_MAX_COMPLETIONS) {
+    const oldestPractice = kept.findIndex((record) => record.dailyDate === undefined);
+    kept.splice(oldestPractice < 0 ? 0 : oldestPractice, 1);
+  }
+  return kept;
+}
+
 export function updateMultiwordSave(
   document: MultiwordSaveDocument,
   state: MultiwordState,
@@ -264,10 +274,8 @@ export function updateMultiwordSave(
   const key = multiwordCompletionKey(state);
   const alreadyRecorded = document.completions.some((record) => record.key === key);
   const completionAdded = state.status !== "active" && !alreadyRecorded;
-  if (completionAdded && document.completions.length >= MULTIWORD_MAX_COMPLETIONS)
-    throw corrupt("Multiword completion history is full");
   const completions = completionAdded
-    ? [
+    ? boundCompletions([
         ...document.completions,
         Object.freeze({
           key,
@@ -277,7 +285,7 @@ export function updateMultiwordSave(
           solved: state.solvedAt.filter((solved) => solved !== null).length,
           ...(state.selection.kind === "daily" ? { dailyDate: state.selection.utcDate } : {}),
         }),
-      ]
+      ])
     : document.completions;
   return {
     document: Object.freeze({
@@ -298,11 +306,9 @@ export function mergeMultiwordCompletions(
   const byKey = new Map(latest.completions.map((record) => [record.key, record]));
   for (const record of proposed.completions)
     if (!byKey.has(record.key)) byKey.set(record.key, record);
-  const completions = [...byKey.values()].sort((left, right) =>
+  const completions = boundCompletions([...byKey.values()]).sort((left, right) =>
     left.key < right.key ? -1 : left.key > right.key ? 1 : 0,
   );
-  if (completions.length > MULTIWORD_MAX_COMPLETIONS)
-    throw corrupt("Multiword completion history is full");
   return Object.freeze({ ...latest, completions: Object.freeze(completions) });
 }
 
