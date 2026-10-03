@@ -2491,7 +2491,7 @@ Resolve each decision only before its dependent phase:
 
 ### Scoped sequencing exception: Axl Lounge
 
-Axl Lounge is implemented as a client-local feature. The terminal client uses the public `terminal.activities` and `terminal.activity-storage` capabilities. The web client has native game interfaces built on the same rule engines and save formats. It ships Wordle, Multiword (2, 4, or 8 Wordle boards on shared guesses), Honeycomb (seven-letter word hive), 2048, Minesweeper, Sudoku, and Chess Puzzles with deterministic offline data, bounded local storage, responsive Agent/game layouts, accessibility modes, and host-owned cleanup. Chess includes 1,000 reviewed CC0 Lichess tactics, exact sourced-line progression, and calibrated raster rendering with semantic fallback. Lounge does not change daemon or session authority. See [`docs/architecture/lounge.md`](docs/architecture/lounge.md).
+Axl Lounge is implemented as a client-local feature. The terminal client uses the public `terminal.activities` and `terminal.activity-storage` capabilities. The web client has native game interfaces built on the same rule engines and save formats. It ships Wordle, Multiword (2, 4, or 8 Wordle boards on shared guesses), Honeycomb (seven-letter word hive), 2048, Minesweeper, Nonogram, Sudoku, and Chess Puzzles with deterministic offline data, bounded local storage, responsive Agent/game layouts, accessibility modes, and host-owned cleanup. Chess includes 1,000 reviewed CC0 Lichess tactics, exact sourced-line progression, and calibrated raster rendering with semantic fallback. Lounge does not change daemon or session authority. See [`docs/architecture/lounge.md`](docs/architecture/lounge.md).
 
 Web UI game support, Productive mode, and Vibe mode remain deferred.
 

@@ -50,6 +50,12 @@ const GAMES: readonly Game[] = [
     Component: lazy(() => import("./lounge/minesweeper.tsx")),
   },
   {
+    id: "axl.lounge.nonogram",
+    name: "Nonogram",
+    blurb: "Fill the grid from the number clues to reveal a picture.",
+    Component: lazy(() => import("./lounge/nonogram.tsx")),
+  },
+  {
     id: "axl.lounge.sudoku",
     name: "Sudoku",
     blurb: "Fill the grid so every row, column and box has 1 to 9.",

@@ -29,6 +29,7 @@ export function createLoungeExtension(options: LoungeExtensionOptions = {}): Ter
         { sudokuActivity },
         { multiwordActivity },
         { honeycombActivity },
+        { nonogramActivity },
       ] = await Promise.all([
         import("./chess-puzzle-activity.ts"),
         import("./chess-puzzles.generated.ts"),
@@ -38,6 +39,7 @@ export function createLoungeExtension(options: LoungeExtensionOptions = {}): Ter
         import("./sudoku-activity.ts"),
         import("./multiword-activity.ts"),
         import("./honeycomb-activity.ts"),
+        import("./nonogram-activity.ts"),
       ]);
       let previousChessSeed = Date.now() - 1;
       const chessPracticeSeed =
@@ -78,6 +80,7 @@ export function createLoungeExtension(options: LoungeExtensionOptions = {}): Ter
           options.minesweeperSeed === undefined ? {} : { seed: options.minesweeperSeed },
         ),
       );
+      api.registerActivity(nonogramActivity());
       api.registerActivity(
         sudokuActivity(options.sudokuSeed === undefined ? {} : { seed: options.sudokuSeed }),
       );

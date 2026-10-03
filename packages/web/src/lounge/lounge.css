@@ -82,6 +82,9 @@
 .art-hive { position: relative; width: 100%; }
 .art-hive i { position: absolute; top: calc(50% - 15px); left: calc(50% - 13px); display: grid; width: 26px; height: 30px; place-items: center; background: color-mix(in srgb, var(--text) 16%, var(--raised)); font-size: 12px; font-style: normal; font-weight: 750; clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); transform: rotate(var(--a, 0deg)) translateX(28px) rotate(calc(var(--a, 0deg) * -1)); text-transform: uppercase; }
 .art-hive i.center { background: var(--accent); color: #fff; transform: none; }
+.art-nono { grid-template-columns: repeat(5, 16px); gap: 2px; align-content: center; }
+.art-nono i { width: 16px; height: 16px; border-radius: 2px; background: var(--lg-line); }
+.art-nono i.on { background: var(--accent); }
 .art-2048 { grid-template-columns: repeat(2, 42px); gap: 5px; align-content: center; }
 .art-2048 .g2048-tile { width: 42px; height: 42px; font-size: 17px; }
 .art-mines { grid-template-columns: repeat(4, 24px); gap: 2px; align-content: center; }
@@ -368,3 +371,27 @@
 .hc-found li { padding: 2px 0; border-bottom: 1px solid var(--line-soft); }
 .hc-found li.pangram { color: var(--accent-strong); font-weight: 700; }
 .lg-honeycomb .lg-toast-slot { top: 142px; }
+
+/* ---------- Nonogram ---------- */
+.ng-board { --line: color-mix(in srgb, var(--text) 18%, transparent); display: grid; flex: none; grid-template-columns: auto calc(var(--cell) * var(--n)); grid-template-rows: auto calc(var(--cell) * var(--n)); touch-action: none; }
+.ng-top { display: grid; grid-template-columns: repeat(var(--n), var(--cell)); }
+.ng-left { display: grid; grid-template-rows: repeat(var(--n), var(--cell)); }
+.ng-clue { display: flex; align-items: center; justify-content: flex-end; gap: 0.2em; color: var(--text-soft); font-size: var(--clue); font-weight: 650; font-variant-numeric: tabular-nums; }
+.ng-clue.col { flex-direction: column; justify-content: flex-end; padding-bottom: 4px; }
+.ng-clue.row { padding-right: 6px; gap: 0.45em; }
+.ng-clue.done { color: color-mix(in srgb, var(--text) 30%, transparent); }
+.ng-clue.focus { color: var(--accent-strong); }
+.ng-clue.done.focus { color: color-mix(in srgb, var(--accent) 50%, transparent); }
+.ng-clue span { line-height: 1.15; }
+.ng-grid { position: relative; display: grid; grid-template-columns: repeat(var(--n), 1fr); grid-template-rows: repeat(var(--n), 1fr); border: 2px solid var(--lg-line-strong); border-radius: 4px; background: var(--lg-surface); cursor: crosshair; }
+.ng-cell { position: relative; display: grid; place-items: center; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); color: var(--muted); font-size: calc(var(--cell) * 0.6); line-height: 1; }
+.ng-cell.gr { border-right: 2px solid var(--lg-line-strong); }
+.ng-cell.gb { border-bottom: 2px solid var(--lg-line-strong); }
+.ng-cell.hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.ng-cell.cursor { box-shadow: inset 0 0 0 2px var(--accent-strong); z-index: 1; }
+.ng-cell.on { background: var(--accent); }
+.ng-cell.on.hint { background: color-mix(in srgb, var(--accent) 70%, var(--green)); }
+.ng-cell i { font-style: normal; }
+.ng-board.solved .ng-cell { border-color: transparent; }
+.ng-board.solved .ng-cell i { display: none; }
+.ng-board.solved .ng-grid { border-color: transparent; background: transparent; }

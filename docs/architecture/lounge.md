@@ -7,7 +7,7 @@ Status: implemented terminal and web client feature
 
 ## Scope
 
-Axl Lounge provides seven offline games for the terminal and web clients: Wordle, Multiword, Honeycomb, 2048, Minesweeper, Sudoku, and Chess Puzzles. The Lounge package contains deterministic game rules and semantic activity renderers. It uses only the public `terminal.activities` and `terminal.activity-storage` extension capabilities.
+Axl Lounge provides eight offline games for the terminal and web clients: Wordle, Multiword, Honeycomb, 2048, Minesweeper, Nonogram, Sudoku, and Chess Puzzles. The Lounge package contains deterministic game rules and semantic activity renderers. It uses only the public `terminal.activities` and `terminal.activity-storage` extension capabilities.
 
 ## Authority and ownership
 
@@ -56,6 +56,7 @@ Disabling or disposing Lounge removes registrations, listeners, timers, queued c
 - **Honeycomb:** seven letters with a required center letter, words of four letters or more, letters may repeat, one point for four letters, the length otherwise, and a seven point bonus for using every letter. A word list of about 36,800 reviewed words is the only list, so every accepted word has been through the same review. The 1,000 puzzles are derived at generation time from the list (25 to 70 words, one to three pangrams, no `s`), and ranks follow the share of the maximum score. The web client draws a hex hive. The terminal activity draws the hive as text. Saves replay the found words and keep a per-puzzle history.
 - **2048:** deterministic spawning, one merge per tile per move, exact one-move undo, win continuation, and game-over detection.
 - **Minesweeper:** delayed deterministic placement, safe first reveal and neighbors, three presets, flags, chords, viewport navigation, mouse input, and active-play timing.
+- **Nonogram:** 80 generated pictures in three sizes (5×5, 10×10, 15×15). Every picture solves by line logic alone, so each has exactly one answer and none needs guessing. Players fill or mark cells, drag to paint a line in one undo step, and can ask for a hint that reveals and locks one cell. A line's clue greys out when its filled runs match. New puzzles prefer ones the player has not solved. The fixtures come from `scripts/generate-nonogram-fixtures.ts`, which uses a fixed seed and the solver in `src/nonogram-solver.ts`, and `check:generated` reruns it.
 - **Sudoku:** twelve versioned unique-solution puzzles, three difficulties, notes, conflicts, hints, undo, and a traditional grid with strong 3×3 separators.
 - **Chess Puzzles:** 1,000 reviewed Lichess tactics, immutable legal move validation, deterministic Daily and Practice selection, exact sourced-line progression, keyboard and mouse controls, progressive hints, explicit promotion choice, and bounded statistics.
 

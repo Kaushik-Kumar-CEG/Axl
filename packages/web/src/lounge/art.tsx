@@ -32,6 +32,24 @@ export function GameArt({ id }: { readonly id: string }): React.JSX.Element {
         <i className="center">o</i>
       </div>
     );
+  if (id === "axl.lounge.nonogram")
+    return (
+      <div className="art art-nono" aria-hidden="true">
+        {[
+          "01110",
+          "11011",
+          "11111",
+          "10101",
+          "01110",
+        ]
+          .join("")
+          .split("")
+          .map((cell, index) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: static art
+            <i key={index} className={cell === "1" ? "on" : ""} />
+          ))}
+      </div>
+    );
   if (id === "axl.lounge.multiword")
     return (
       <div className="art art-multi" aria-hidden="true">

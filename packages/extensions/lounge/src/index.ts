@@ -294,3 +294,43 @@ export {
   updateHoneycombSave,
 } from "./honeycomb-state.ts";
 export { type HoneycombActivityOptions, honeycombActivity } from "./honeycomb-activity.ts";
+export {
+  createNonogram,
+  NONOGRAM_ALGORITHM_VERSION,
+  NONOGRAM_FIXTURE_SET_REVISION,
+  NONOGRAM_FIXTURES,
+  NONOGRAM_MAX_UNDO,
+  NONOGRAM_SIZES,
+  type NonogramAction,
+  type NonogramCell,
+  type NonogramFixture,
+  type NonogramSize,
+  type NonogramState,
+  type NonogramStatus,
+  nonogramClues,
+  nonogramFixture,
+  nonogramLineDone,
+  nonogramSolution,
+  reduceNonogram,
+  restoreNonogram,
+  selectNonogramFixture,
+} from "./nonogram.ts";
+export {
+  createEmptyNonogramSave,
+  NONOGRAM_MAX_SOLVED,
+  NONOGRAM_STORAGE_SCHEMA_VERSION,
+  type NonogramPreferences,
+  type NonogramSaveDocument,
+  NonogramSaveError,
+  type NonogramSaveErrorCode,
+  mergeNonogramSolved,
+  nonogramSaveJson,
+  parseNonogramSave,
+  updateNonogramSave,
+} from "./nonogram-state.ts";
+export { nonogramRuns, solveNonogramByLines } from "./nonogram-solver.ts";
+export {
+  type NonogramActivityOptions,
+  nonogramActivity,
+  nonogramTerminalSize,
+} from "./nonogram-activity.ts";
