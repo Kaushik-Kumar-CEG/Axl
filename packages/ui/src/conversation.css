@@ -54,7 +54,7 @@
 .response-usage > summary svg { width:11px; height:11px; fill:none; stroke:currentColor; stroke-linecap:round; stroke-linejoin:round; stroke-width:1.4; transition:transform 120ms ease-out; }
 .response-usage[open] > summary svg { transform:rotate(90deg); }
 .response-usage > summary:hover { color:var(--muted); }
-.response-usage dl { display:flex; max-width:min(620px,calc(100vw - 96px)); flex-wrap:wrap; gap:7px 16px; margin:6px 0 0; padding:8px 10px; border-top:1px solid var(--line-soft); }
+.response-usage dl { display:flex; max-width:min(620px,calc(100cqw - 96px)); flex-wrap:wrap; gap:7px 16px; margin:6px 0 0; padding:8px 10px; border-top:1px solid var(--line-soft); }
 .response-usage dl div { display:grid; grid-template-columns:auto auto; gap:5px; }
 .response-usage dt { color:var(--subtle); }
 .response-usage dd { margin:0; color:var(--muted); font-variant-numeric:tabular-nums; }
@@ -296,5 +296,5 @@
 
 @keyframes waiting-dot { 0%,60%,100%{opacity:.28;transform:translateY(0)} 30%{opacity:1;transform:translateY(-2px)} }
 @keyframes status-spin { to{transform:rotate(360deg)} }
-@media (max-width:760px){.message-actions{position:static;width:max-content;margin-top:8px;opacity:1;pointer-events:auto;transform:none}.question-stage.has-preview{grid-template-columns:minmax(0,1fr)}.questionnaire .question-preview{margin:0 16px 12px}}
+@container app (max-width:760px){.message-actions{position:static;width:max-content;margin-top:8px;opacity:1;pointer-events:auto;transform:none}.question-stage.has-preview{grid-template-columns:minmax(0,1fr)}.questionnaire .question-preview{margin:0 16px 12px}}
 @media (prefers-reduced-motion:reduce){.waiting-dots i,.tool-item.running .tool-status i{animation:none!important}.waiting-dots i{opacity:.65}}

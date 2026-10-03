@@ -13,6 +13,7 @@ import {
 } from "@axl/sdk";
 import { BrowserWebSocketTransportFactory } from "@axl/sdk/browser";
 
+import { type LoungeSettings, parseLoungeSettings } from "./lounge-client.ts";
 import { type PaneId, parsePaneIds } from "./panes.ts";
 
 // Replaced at build time by Vite define; falls back to a development marker when
@@ -34,6 +35,8 @@ export interface WebPreferences {
   readonly panes: readonly PaneId[];
   /** Host-persisted color theme so it survives the per-launch gateway port. */
   readonly theme: "system" | "light" | "dark";
+  /** Whether the Lounge game pane is shown beside the app. */
+  readonly loungeOpen: boolean;
 }
 
 export type WebHostCapability = "project.folder.validate" | "provider.auth.login";
@@ -52,6 +55,8 @@ export interface WebBootstrap {
   readonly cwd: string;
   readonly webSocketPath: string;
   readonly preferences: WebPreferences;
+  /** Present only when the host enabled Lounge. */
+  readonly lounge?: { readonly settings: LoungeSettings };
   readonly hostCapabilities: readonly WebHostCapability[];
 }
 
@@ -86,8 +91,18 @@ function fragment(): { readonly token?: string; readonly sessionId?: SessionId }
   };
 }
 
+/** The gateway rejected this browser: it has no valid launch link or session cookie. */
+export class WebAuthenticationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "WebAuthenticationError";
+  }
+}
+
 async function json<Response>(path: string, init?: RequestInit): Promise<Response> {
   const response = await fetch(path, { credentials: "same-origin", ...init });
+  if (response.status === 401)
+    throw new WebAuthenticationError((await response.text()) || "Authentication required");
   if (!response.ok)
     throw new Error((await response.text()) || `Request failed (${response.status})`);
   return response.json() as Promise<Response>;
@@ -121,6 +136,8 @@ export function parseWebPreferences(value: unknown): WebPreferences {
     preferences.theme !== "dark"
   )
     throw new Error("Invalid web preferences");
+  if (preferences.loungeOpen !== undefined && typeof preferences.loungeOpen !== "boolean")
+    throw new Error("Invalid web preferences");
   return {
     sidebarWidth: preferences.sidebarWidth as number,
     dockWidth: preferences.dockWidth as number,
@@ -128,6 +145,7 @@ export function parseWebPreferences(value: unknown): WebPreferences {
     changesView: preferences.changesView,
     panes,
     theme: (preferences.theme as "system" | "light" | "dark" | undefined) ?? "system",
+    loungeOpen: (preferences.loungeOpen as boolean | undefined) ?? true,
   };
 }
 
@@ -149,6 +167,13 @@ export function parseBootstrap(value: unknown): WebBootstrap {
     cwd: record.cwd,
     webSocketPath: record.webSocketPath,
     preferences: parseWebPreferences(record.preferences),
+    ...(record.lounge === undefined
+      ? {}
+      : {
+          lounge: {
+            settings: parseLoungeSettings((record.lounge as { settings?: unknown }).settings),
+          },
+        }),
     hostCapabilities: record.hostCapabilities as readonly WebHostCapability[],
   };
 }

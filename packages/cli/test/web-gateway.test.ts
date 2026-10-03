@@ -15,6 +15,7 @@ import { MAX_WIRE_MESSAGE_BYTES, WIRE_PROTOCOL_VERSION } from "@axl/protocol";
 import { startLocalDaemon } from "@axl/runtime";
 import { connectUnixClient } from "@axl/sdk/unix";
 import WebSocket from "ws";
+import { LoungeStorage } from "../src/lounge-storage.ts";
 import {
   encodeWebSessionArtifact,
   startWebGateway,
@@ -360,6 +361,23 @@ test("the gateway exchanges one launch token and authenticates one daemon bridge
   });
   assert.equal(replay.status, 401);
 
+  // A second browser needs a fresh link. Issuing one retires the spent token and works once.
+  const second = new URLSearchParams(new URL(gateway.issueLaunchUrl()).hash.slice(1)).get("token");
+  assert.ok(second);
+  assert.notEqual(second, launchToken);
+  const secondExchange = await fetch(exchangeUrl, {
+    method: "POST",
+    headers: { origin, "content-type": "application/json" },
+    body: JSON.stringify({ token: second }),
+  });
+  assert.equal(secondExchange.status, 200);
+  const secondReplay = await fetch(exchangeUrl, {
+    method: "POST",
+    headers: { origin, "content-type": "application/json" },
+    body: JSON.stringify({ token: second }),
+  });
+  assert.equal(secondReplay.status, 401);
+
   const moduleUrl = new URL(
     "extension/123e4567-e89b-42d3-a456-426614174000/example.mjs",
     gateway.origin,
@@ -389,6 +407,7 @@ test("the gateway exchanges one launch token and authenticates one daemon bridge
       changesView: "files",
       panes: ["browser", "files"],
       theme: "system",
+      loungeOpen: true,
     },
     hostCapabilities: ["project.folder.validate", "provider.auth.login"],
   });
@@ -448,6 +467,7 @@ test("the gateway exchanges one launch token and authenticates one daemon bridge
     changesView: "all",
     panes: ["browser", "terminal"],
     theme: "system",
+    loungeOpen: true,
   });
   const themed = await fetch(new URL("preferences", gateway.origin), {
     method: "POST",
@@ -789,4 +809,102 @@ test("the gateway exchanges one launch token and authenticates one daemon bridge
     ),
   ]);
   assert.ok(performance.now() - stalledAt >= 4_000);
+});
+
+test("the gateway brokers Lounge saves and settings only when Lounge is enabled", async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), "axl-web-lounge-"));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const html = '<div id="root"></div>';
+  await writeFile(join(directory, "index.html"), html);
+  await writeFile(
+    join(directory, "asset-metadata.json"),
+    JSON.stringify({
+      webAssetVersion: 1,
+      packageVersion: "0.0.0-test",
+      sourceRevision: "fixture",
+      wireVersion: WIRE_PROTOCOL_VERSION,
+      entrypoints: ["index.html"],
+      sha256: { "index.html": createHash("sha256").update(html).digest("hex") },
+    }),
+  );
+  const open = async (lounge: boolean, seed: number) => {
+    const token = Buffer.alloc(32, seed);
+    const gateway = await startWebGateway({
+      socketPath: join(directory, "unused.sock"),
+      assetDirectory: directory,
+      stateDirectory: directory,
+      cwd: "/workspace",
+      packageVersion: "0.0.0-test",
+      launchToken: token,
+      pathToken: Buffer.alloc(16, seed),
+      ...(lounge ? { lounge: new LoungeStorage(join(directory, "lounge")) } : {}),
+    });
+    context.after(() => gateway.close());
+    const origin = new URL(gateway.origin).origin;
+    const exchange = await fetch(new URL("auth/exchange", gateway.origin), {
+      method: "POST",
+      headers: { origin, "content-type": "application/json" },
+      body: JSON.stringify({ token: token.toString("base64url") }),
+    });
+    const cookie = exchange.headers.get("set-cookie")?.split(";", 1)[0] ?? "";
+    const post = (path: string, body: unknown) =>
+      fetch(new URL(path, gateway.origin), {
+        method: "POST",
+        headers: { origin, cookie, "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    return { post, gateway, origin, cookie };
+  };
+
+  const off = await open(false, 21);
+  assert.equal((await off.post("lounge/storage", { op: "read" })).status, 404);
+  assert.equal(
+    ((await (await off.post("bootstrap", {})).json()) as { lounge?: unknown }).lounge,
+    undefined,
+  );
+
+  const on = await open(true, 22);
+  const unauthenticated = await fetch(new URL("lounge/storage", on.gateway.origin), {
+    method: "POST",
+    headers: { origin: on.origin, "content-type": "application/json" },
+    body: "{}",
+  });
+  assert.equal(unauthenticated.status, 401);
+  assert.deepEqual(
+    ((await (await on.post("bootstrap", {})).json()) as { lounge: unknown }).lounge,
+    { settings: { version: 1, reducedMotion: false, textOnly: false } },
+  );
+  const scope = { extensionId: "axl.lounge", activityId: "axl.lounge.2048" };
+  assert.deepEqual(await (await on.post("lounge/storage", { op: "read", scope })).json(), {
+    value: null,
+  });
+  const written = await on.post("lounge/storage", {
+    op: "write",
+    scope,
+    expectedRevision: null,
+    schemaVersion: 1,
+    value: { best: 8 },
+  });
+  assert.deepEqual(await written.json(), { revision: 1, schemaVersion: 1, value: { best: 8 } });
+  const conflict = await on.post("lounge/storage", {
+    op: "write",
+    scope,
+    expectedRevision: null,
+    schemaVersion: 1,
+    value: { best: 9 },
+  });
+  assert.equal(conflict.status, 422);
+  assert.equal(((await conflict.json()) as { code: string }).code, "conflict");
+  assert.equal(
+    (await on.post("lounge/storage", { op: "read", scope: { ...scope, extra: 1 } })).status,
+    400,
+  );
+  assert.equal(
+    (
+      (await (await on.post("lounge/settings", { update: { textOnly: true } })).json()) as {
+        textOnly: boolean;
+      }
+    ).textOnly,
+    true,
+  );
 });

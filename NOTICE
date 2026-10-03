@@ -26,3 +26,5 @@ Its JavaScript package includes an MIT notice, and its platform launcher package
 are distributed under BSD-3-Clause. Those notices remain in the installed dependency
 packages. Axl invokes the launcher as an external process and does not copy or modify
 its source.
+
+Axl's web Lounge draws chess puzzles with the "Cburnett" chess piece artwork by Colin M. L. Burnett, taken from Wikimedia Commons (https://commons.wikimedia.org/wiki/User:Cburnett) and used under the 3-clause BSD license, one of the licenses its author offers. The files and notice are in packages/web/src/lounge/pieces and the license text is in LICENSES/BSD-3-Clause.txt. The board styling follows the look of Lichess (https://lichess.org). No Lichess source code or Lichess-hosted assets are used.

@@ -25,6 +25,7 @@ const valid = {
     changesView: "files",
     panes: ["browser", "files"],
     theme: "system",
+    loungeOpen: true,
   },
   hostCapabilities: ["project.folder.validate", "provider.auth.login"],
 };

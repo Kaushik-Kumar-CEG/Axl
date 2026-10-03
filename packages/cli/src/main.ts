@@ -1070,6 +1070,9 @@ async function main(): Promise<void> {
     ...(cli.image === undefined ? {} : { image: cli.image }),
   };
   const webGateways = new Set<{ readonly close: () => Promise<void> }>();
+  /** The browser shares the terminal's Lounge setting and local saves. */
+  const webLounge = (): { readonly lounge?: LoungeStorage } =>
+    (settings.loungeEnabled ?? true) ? { lounge: new LoungeStorage(join(axlHome, "lounge")) } : {};
   const openWebForTarget =
     (target: LocalDaemonTarget) =>
     async (
@@ -1085,6 +1088,7 @@ async function main(): Promise<void> {
         assetDirectory: resolve(dirname(fileURLToPath(import.meta.url)), WEB_ASSET_RELATIVE_PATH),
         packageVersion: AXL_VERSION,
         providerHost,
+        ...webLounge(),
       });
       try {
         await launchBrowser(`${gateway.launchUrl}&session=${encodeURIComponent(sessionId)}`);
@@ -1116,6 +1120,7 @@ async function main(): Promise<void> {
       cwd: cli.cwd,
       assetDirectory: resolve(dirname(fileURLToPath(import.meta.url)), WEB_ASSET_RELATIVE_PATH),
       packageVersion: AXL_VERSION,
+      ...webLounge(),
       ...(process.stdin.isTTY === true && process.stdout.isTTY === true
         ? {
             providerHost: {
@@ -1127,14 +1132,28 @@ async function main(): Promise<void> {
           }
         : {}),
     });
-    process.stdout.write(`Axl web: ${gateway.origin}\n`);
-    const launchUrl =
-      cli.sessionId === undefined
-        ? gateway.launchUrl
-        : `${gateway.launchUrl}&session=${encodeURIComponent(cli.sessionId)}`;
+    process.stdout.write(`Axl web is running at ${gateway.origin}\n`);
+    const withSession = (url: string): string =>
+      cli.sessionId === undefined ? url : `${url}&session=${encodeURIComponent(cli.sessionId)}`;
+    const launchUrl = withSession(gateway.launchUrl);
     if (cli.printUrl) {
       // Explicitly requested token-bearing URL: one use, expires in 60 seconds.
       process.stdout.write(`Open within 60 seconds (one use): ${launchUrl}\n`);
+    }
+    if (process.stdin.isTTY === true && process.stdout.isTTY === true) {
+      // The opened link is single use, so another browser needs its own link.
+      process.stdout.write("Press Enter for a one-use link to sign in from another browser.\n");
+      process.stdin.setEncoding("utf8");
+      process.stdin.on("data", (text: string) => {
+        if (!text.includes("\n")) return;
+        process.stdout.write(
+          `Open within 60 seconds (one use): ${withSession(gateway.issueLaunchUrl())}\n`,
+        );
+      });
+    } else if (!cli.printUrl) {
+      process.stdout.write(
+        "Run `axl web --no-open --print-url` for a link to open in another browser.\n",
+      );
     }
     if (!cli.noOpen) {
       try {

@@ -275,6 +275,12 @@ importers:
 
   packages/web:
     dependencies:
+      '@axl/extension-api':
+        specifier: workspace:*
+        version: link:../extensions/api
+      '@axl/extension-lounge':
+        specifier: workspace:*
+        version: link:../extensions/lounge
       '@axl/sdk':
         specifier: workspace:*
         version: link:../sdk
@@ -288,9 +294,6 @@ importers:
         specifier: 19.2.8
         version: 19.2.8(react@19.2.8)
     devDependencies:
-      '@axl/extension-api':
-        specifier: workspace:*
-        version: link:../extensions/api
       '@types/react':
         specifier: 19.2.18
         version: 19.2.18

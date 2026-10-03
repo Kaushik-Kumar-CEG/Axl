@@ -8,6 +8,7 @@ import { createConnection, type Socket } from "node:net";
 import { extname, join, resolve, sep } from "node:path";
 import { StringDecoder } from "node:string_decoder";
 
+import { ActivityStorageError, type JsonValue } from "@axl/extension-api";
 import {
   MAX_WIRE_MESSAGE_BYTES,
   type ProviderLoginMethod,
@@ -23,6 +24,8 @@ import {
 import { AxlClientError, type TrustedProviderHost } from "@axl/sdk";
 import { connectUnixClient } from "@axl/sdk/unix";
 import { type WebSocket, WebSocketServer } from "ws";
+
+import type { LoungeStorage } from "./lounge-storage.ts";
 
 const SECURITY_HEADERS = {
   "cache-control": "no-store",
@@ -50,6 +53,8 @@ export interface WebGatewayOptions {
   readonly cwd: string;
   readonly packageVersion: string;
   readonly providerHost?: TrustedProviderHost;
+  /** Present only when Lounge is enabled. The gateway only brokers client-local game saves. */
+  readonly lounge?: LoungeStorage;
   readonly launchToken?: Buffer;
   readonly pathToken?: Buffer;
   /** Test seams may shorten, but never widen, the fixed 60-second attachment idle limit. */
@@ -66,6 +71,7 @@ export interface WebPreferences {
   readonly changesView: "files" | "all";
   readonly panes: readonly WebPaneId[];
   readonly theme: "system" | "light" | "dark";
+  readonly loungeOpen: boolean;
 }
 
 const MAX_WEB_ARTIFACT_BYTES = 64 * 1024 * 1024;
@@ -78,6 +84,7 @@ const DEFAULT_WEB_PREFERENCES: WebPreferences = {
   changesView: "files",
   panes: ["browser", "files"],
   theme: "system",
+  loungeOpen: true,
 };
 
 function isWorkspaceDiffRequest(text: string): boolean {
@@ -114,8 +121,10 @@ function parsePreferences(value: unknown): WebPreferences {
           "changesView",
           "panes",
           "theme",
+          "loungeOpen",
         ].includes(key),
     ) ||
+    (record.loungeOpen !== undefined && typeof record.loungeOpen !== "boolean") ||
     (record.theme !== undefined &&
       record.theme !== "system" &&
       record.theme !== "light" &&
@@ -137,12 +146,63 @@ function parsePreferences(value: unknown): WebPreferences {
     changesView: record.changesView,
     panes: parsePaneIds(record.panes),
     theme: (record.theme as "system" | "light" | "dark" | undefined) ?? "system",
+    loungeOpen: (record.loungeOpen as boolean | undefined) ?? true,
   };
+}
+
+const MAX_LOUNGE_REQUEST_BYTES = 512 * 1024;
+
+function loungeScope(value: unknown): { extensionId: string; activityId: string } {
+  const scope = value as Record<string, unknown> | null;
+  if (
+    typeof scope !== "object" ||
+    scope === null ||
+    Object.keys(scope).sort().join() !== "activityId,extensionId" ||
+    typeof scope.extensionId !== "string" ||
+    typeof scope.activityId !== "string"
+  )
+    throw new Error("Invalid Lounge storage scope");
+  return { extensionId: scope.extensionId, activityId: scope.activityId };
+}
+
+/** Maps one browser Lounge request onto the CLI-owned, validated storage. */
+async function handleLoungeRequest(
+  storage: LoungeStorage,
+  relative: "lounge/storage" | "lounge/settings",
+  body: Buffer,
+  signal: AbortSignal,
+): Promise<unknown> {
+  const request = JSON.parse(body.toString("utf8")) as Record<string, unknown> | null;
+  if (typeof request !== "object" || request === null || Array.isArray(request))
+    throw new Error("Invalid Lounge request");
+  if (relative === "lounge/settings") {
+    if (Object.keys(request).join() !== "update") throw new Error("Invalid Lounge request");
+    return storage.updateSettings(request.update as Record<string, never>, signal);
+  }
+  const scope = loungeScope(request.scope);
+  if (request.op === "read") return { value: (await storage.read(scope, signal)) ?? null };
+  if (request.op === "write") {
+    if (!Number.isSafeInteger(request.schemaVersion)) throw new Error("Invalid Lounge request");
+    return storage.write(
+      scope,
+      request.expectedRevision as number | null,
+      request.schemaVersion as number,
+      request.value as JsonValue,
+      signal,
+    );
+  }
+  if (request.op === "reset") {
+    await storage.reset(scope, request.expectedRevision as number, signal);
+    return {};
+  }
+  throw new Error("Invalid Lounge request");
 }
 
 export interface WebGateway {
   readonly origin: string;
   readonly launchUrl: string;
+  /** Replaces the pending launch token with a new one-use link, valid for 60 seconds. */
+  issueLaunchUrl(): string;
   close(): Promise<void>;
 }
 
@@ -450,7 +510,7 @@ export async function verifyWebAssets(
 
 export async function startWebGateway(options: WebGatewayOptions): Promise<WebGateway> {
   const metadata = await verifyWebAssets(options.assetDirectory, options.packageVersion);
-  const launchToken = options.launchToken ?? randomBytes(32);
+  let launchToken = options.launchToken ?? randomBytes(32);
   const pathToken = options.pathToken ?? randomBytes(16);
   const browserCredential = randomBytes(32);
   const webSocketIdleTimeoutMs = Math.min(options.webSocketIdleTimeoutMs ?? 60_000, 60_000);
@@ -459,7 +519,7 @@ export async function startWebGateway(options: WebGatewayOptions): Promise<WebGa
   const prefix = `/a/${pathToken.toString("base64url")}/`;
   const cookieName = "axl_web";
   let launchAvailable = true;
-  const launchExpiresAt = Date.now() + 60_000;
+  let launchExpiresAt = Date.now() + 60_000;
   const credentialExpiresAt = Date.now() + 12 * 60 * 60 * 1_000;
   const preferencesPath = join(options.stateDirectory, "web-preferences.json");
   let preferences = await readFile(preferencesPath, "utf8").then(
@@ -554,6 +614,9 @@ export async function startWebGateway(options: WebGatewayOptions): Promise<WebGa
             cwd: options.cwd,
             webSocketPath: `${prefix}ws`,
             preferences,
+            ...(options.lounge === undefined
+              ? {}
+              : { lounge: { settings: await options.lounge.loadSettings() } }),
             hostCapabilities: [
               "project.folder.validate",
               ...(options.providerHost === undefined ? [] : ["provider.auth.login"]),
@@ -709,6 +772,33 @@ export async function startWebGateway(options: WebGatewayOptions): Promise<WebGa
           return send(response, 500, "Could not persist preferences");
         }
         return send(response, 200, "{}", "application/json; charset=utf-8");
+      }
+      if (
+        request.method === "POST" &&
+        (relative === "lounge/storage" || relative === "lounge/settings")
+      ) {
+        if (!validOrigin(request) || !authorized(request))
+          return send(response, 401, "Authentication required");
+        if (options.lounge === undefined) return send(response, 404, "Not found");
+        const abort = new AbortController();
+        response.once("close", () => abort.abort());
+        try {
+          const result = await handleLoungeRequest(
+            options.lounge,
+            relative,
+            await requestBody(request, MAX_LOUNGE_REQUEST_BYTES),
+            abort.signal,
+          );
+          return send(response, 200, JSON.stringify(result), "application/json; charset=utf-8");
+        } catch (error) {
+          if (!(error instanceof ActivityStorageError)) throw error;
+          return send(
+            response,
+            422,
+            JSON.stringify({ code: error.code, message: error.message }),
+            "application/json; charset=utf-8",
+          );
+        }
       }
       if (request.method === "GET" && relative.startsWith("extension/")) {
         if (!authorized(request)) return send(response, 401, "Authentication required");
@@ -893,6 +983,12 @@ export async function startWebGateway(options: WebGatewayOptions): Promise<WebGa
   return {
     origin: `${expectedOrigin}${prefix}`,
     launchUrl: `${expectedOrigin}${prefix}#token=${launchToken.toString("base64url")}`,
+    issueLaunchUrl: () => {
+      launchToken = randomBytes(32);
+      launchAvailable = true;
+      launchExpiresAt = Date.now() + 60_000;
+      return `${expectedOrigin}${prefix}#token=${launchToken.toString("base64url")}`;
+    },
     close: () =>
       new Promise((resolvePromise, reject) => {
         providerLogin?.controller.abort();

@@ -3,11 +3,11 @@
 
 # Axl Lounge architecture
 
-Status: implemented terminal client feature
+Status: implemented terminal and web client feature
 
 ## Scope
 
-Axl Lounge provides five offline terminal games: Wordle, 2048, Minesweeper, Sudoku, and Chess Puzzles. The Lounge package contains deterministic game rules and semantic activity renderers. It uses only the public `terminal.activities` and `terminal.activity-storage` extension capabilities.
+Axl Lounge provides five offline games for the terminal and web clients: Wordle, 2048, Minesweeper, Sudoku, and Chess Puzzles. The Lounge package contains deterministic game rules and semantic activity renderers. It uses only the public `terminal.activities` and `terminal.activity-storage` extension capabilities.
 
 ## Authority and ownership
 
@@ -16,6 +16,18 @@ The daemon remains the sole authority for sessions, canonical events, model work
 The TUI owns activity registration, layout, focus, attention priority, input decoding, mouse-coordinate translation, rendering, scheduling, the live Agent transcript and composer, and cleanup. Agent input continues through the existing editor, history, completion, attachment, Vim, queue, Ctrl+O, transcript, and submission paths. The CLI composes the Lounge extension and implements bounded local activity storage.
 
 The Lounge package does not import the TUI, SDK, CLI, daemon, runtime, kernel, sandbox, AI, filesystem, networking, or private host internals. Disabled Lounge performs no registration, storage access, timer work, or background work.
+
+## Web client
+
+The web client does not render terminal frames. `packages/web` has a native React interface for each game (`src/lounge/`). Each one imports the pure rule engines and save codecs that `@axl/extension-lounge` exports, so rules, deterministic selection, and the save format are shared with the terminal. The web games reimplement only presentation and the save orchestration (`save-slot.ts`: ordered writes, revision checks, merge of completion records after a conflict). Each game is a lazy chunk, so a game's data loads only when it is opened. The Chess puzzle catalog is imported from the `@axl/extension-lounge/chess-puzzles` subpath.
+
+The Chess board follows the look of Lichess. The pieces are the Cburnett set from Wikimedia Commons, used under BSD-3-Clause (see `packages/web/src/lounge/pieces/README.md`, `NOTICE`, and `LICENSES/BSD-3-Clause.txt`). No Lichess source code or hosted asset is used. The puzzle data is the Lichess puzzle database (CC0).
+
+The settings are shared with the terminal. "Animations" is the inverse of `reducedMotion`. "Color-blind markers" is `textOnly` and adds symbols so state never depends on color alone.
+
+Lounge occupies the right half of the page. On narrow screens it occupies the top and the app the bottom. All app responsive decisions follow the app frame (`.app-frame`) instead of the window, and the app's overlays are positioned inside that frame. The pane is shown by default and the `/lounge` command or the pane's close button hides it. The choice is a host web preference (`loungeOpen`).
+
+The browser has no filesystem access. Saves and settings go through the gateway, which uses the same CLI-owned `LoungeStorage` as the terminal. The gateway exposes `lounge/storage` and `lounge/settings` only when Lounge is enabled in `settings.json`, and the browser never receives a path. Activities pause while the page is hidden or the pane is too small, and the pane unmounts, and disposes every activity, when it closes.
 
 ## Public capabilities
 
@@ -56,6 +68,7 @@ pnpm --filter @axl/extension-api test
 pnpm --filter @axl/extension-lounge test
 pnpm --filter @axl/tui test
 pnpm --filter @axl/cli test
+pnpm --filter @axl/web test
 pnpm --filter @axl/extension-lounge benchmark
 pnpm --filter @axl/tui benchmark
 pnpm check:generated
@@ -67,4 +80,4 @@ Manual PTY review covers 40×24, 80×24, and 120×30 terminals. It checks respon
 
 ## Deferred work
 
-Web UI game support, Productive mode, and Vibe mode remain deferred. They are not part of the implemented Lounge surface.
+Productive mode and Vibe mode remain deferred. They are not part of the implemented Lounge surface.

@@ -26,12 +26,15 @@ export function webPresentationCommands({
   openProviders,
   openTheme,
   setTheme,
+  toggleLounge,
 }: {
   readonly canLogin: boolean;
   readonly openNewSession: (mode?: "chat" | "code") => void;
   readonly openProviders: () => void;
   readonly openTheme: () => void;
   readonly setTheme: (theme: WebTheme) => void;
+  /** Present only when the host enabled Lounge. */
+  readonly toggleLounge?: (open?: boolean) => void;
 }): readonly PresentationCommand[] {
   return [
     {
@@ -74,6 +77,22 @@ export function webPresentationCommands({
         setTheme(argument);
       },
     },
+    ...(toggleLounge === undefined
+      ? []
+      : [
+          {
+            id: "web.lounge",
+            name: "lounge",
+            description: "Show or hide the Lounge game pane",
+            argument: { required: false, hint: "on | off" },
+            run: (argument?: string) => {
+              if (argument !== undefined && argument !== "on" && argument !== "off") {
+                throw new Error(`Lounge must be on or off${hint(argument, ["on", "off"])}`);
+              }
+              toggleLounge(argument === undefined ? undefined : argument === "on");
+            },
+          },
+        ]),
   ];
 }
 

@@ -13,6 +13,10 @@
     "./terminal": {
       "types": "./dist/extension.d.ts",
       "import": "./dist/extension.js"
+    },
+    "./chess-puzzles": {
+      "types": "./dist/chess-puzzles.generated.d.ts",
+      "import": "./dist/chess-puzzles.generated.js"
     }
   },
   "files": [
@@ -26,5 +30,6 @@
   },
   "dependencies": {
     "@axl/extension-api": "workspace:*"
-  }
+  },
+  "sideEffects": false
 }

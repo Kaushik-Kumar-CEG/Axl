@@ -16,9 +16,10 @@ import {
 
 /** Keep in sync with --dock-motion in styles.css. */
 const TILE_MOTION_MS = 360;
-const TABBED_DOCK_QUERY = "(max-width: 1180px), (max-height: 720px)";
 
 interface DockProps {
+  /** Present panes as tabs instead of tiles. Decided by the app frame, not the window. */
+  readonly tabbed: boolean;
   readonly layout: PaneLayout;
   readonly onLayout: (layout: PaneLayout) => void;
   readonly renderPane: (pane: PaneId) => ReactNode;
@@ -45,9 +46,8 @@ function useMediaQuery(query: string): boolean {
  * constrained viewports. Tiles keep a stable canonical order and resize through
  * flex-grow so every layout uses the same persisted weights.
  */
-export function Dock({ layout, onLayout, renderPane, renderControls }: DockProps): React.JSX.Element {
+export function Dock({ tabbed, layout, onLayout, renderPane, renderControls }: DockProps): React.JSX.Element {
   const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
-  const tabbed = useMediaQuery(TABBED_DOCK_QUERY);
   const dock = useRef<HTMLElement>(null);
   const tabList = useRef<HTMLDivElement>(null);
   const previousPanes = useRef(layout.panes);

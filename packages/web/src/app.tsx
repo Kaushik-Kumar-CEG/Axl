@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Shaan Narendran
 // SPDX-License-Identifier: Apache-2.0
 
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   type AttachmentPresence,
   type AxlClient,
@@ -68,9 +68,12 @@ import {
   saveWebPreferences,
   SIDEBAR_WIDTH_RANGE,
   validateProjectFolder,
+  WebAuthenticationError,
   type WebBootstrap,
   type WebPreferences,
 } from "./environment.ts";
+import { browserLoungeStorage, type LoungeSettings, saveLoungeSettings } from "./lounge-client.ts";
+import { LoungePane } from "./lounge-pane.tsx";
 import { ModelPicker } from "./model-picker.tsx";
 import { isModelPickerShortcut, nextThinkingLevel } from "./model-picker-state.ts";
 import { NewSessionDialog } from "./new-session-dialog.tsx";
@@ -140,6 +143,7 @@ const DEFAULT_LAYOUT: WebPreferences = {
   changesView: "files",
   panes: DEFAULT_PANES,
   theme: "system",
+  loungeOpen: true,
 };
 const PREVIEW_LAYOUT_KEY = "axl.preview.layout";
 const DAEMON_CONNECTION_LABELS: Readonly<Record<ConnectionState, string>> = {
@@ -260,6 +264,24 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
   const initialLayout = useRef(preview === undefined ? DEFAULT_LAYOUT : previewLayout()).current;
   const [client, setClient] = useState<AxlClient>();
   const [bootstrap, setBootstrap] = useState<WebBootstrap>();
+  const [loungeOpen, setLoungeOpen] = useState(initialLayout.loungeOpen);
+  const [authRequired, setAuthRequired] = useState(false);
+  const [loungeSettings, setLoungeSettings] = useState<LoungeSettings>();
+  // Every responsive decision follows the app frame, not the window, so the app keeps its
+  // layout when Lounge takes half of the page.
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [frameSize, setFrameSize] = useState({ width: innerWidth, height: innerHeight });
+  useLayoutEffect(() => {
+    const frame = frameRef.current;
+    if (frame === null) return;
+    const measure = (): void => setFrameSize({ width: frame.clientWidth, height: frame.clientHeight });
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(frame);
+    return () => observer.disconnect();
+  }, []);
+  const compactDock = frameSize.width <= 1180;
+  const narrowFrame = frameSize.width <= 760;
   const [sessions, setSessions] = useState<readonly SessionSummary[]>(preview?.sessions ?? []);
   const [sessionsCursor, setSessionsCursor] = useState<string>();
   const [loadingMoreSessions, setLoadingMoreSessions] = useState(false);
@@ -612,6 +634,8 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
     void connectWebEnvironment().then(async (environment) => {
       if (disposed) { environment.client.close(); return; }
       activeClient = environment.client; setClient(environment.client); setBootstrap(environment.bootstrap);
+      setLoungeOpen(environment.bootstrap.preferences.loungeOpen);
+      setLoungeSettings(environment.bootstrap.lounge?.settings);
       const providers = new ProviderDirectoryController(environment.client);
       const configuration = new SessionConfigurationController(environment.client);
       providerDirectoryController.current = providers;
@@ -643,6 +667,7 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
               setControlCenter("settings");
             },
             setTheme,
+            ...(environment.bootstrap.lounge === undefined ? {} : { toggleLounge: (open?: boolean) => toggleLoungeRef.current(open) }),
           }),
           ...(webExtensionRef.current?.commands().map((command) => ({
             id: `${command.extensionId}.${command.name}`,
@@ -694,6 +719,7 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
         setNewSessionOpen(true);
       }
     }).catch((cause: unknown) => {
+      if (cause instanceof WebAuthenticationError) setAuthRequired(true);
       if (!disposed) {
         setConnection("disconnected");
         setError(cause instanceof Error ? cause.message : "Could not start Axl web");
@@ -888,13 +914,13 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
   useEffect(() => setTranscriptMatch(-1), [transcriptQuery]);
   useEffect(() => setSlashCommandIndex(0), [draft]);
   useEffect(() => {
-    if (!matchMedia("(max-width: 760px)").matches) return;
+    if (!narrowFrame) return;
     if (sidebarOpen) sidebarClose.current?.focus();
     else if (sidebarWasOpen.current) mobileMenu.current?.focus();
     sidebarWasOpen.current = sidebarOpen;
   }, [sidebarOpen]);
   useEffect(() => {
-    if (!matchMedia("(max-width: 1180px)").matches) {
+    if (!compactDock) {
       mobileDockWasOpen.current = false;
       return;
     }
@@ -906,14 +932,8 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
     mobileDockWasOpen.current = mobileDock;
   }, [mobileDock]);
   useEffect(() => {
-    const media = matchMedia("(max-width: 1180px)");
-    const closeDesktopOverlay = (): void => {
-      if (!media.matches) setMobileDock(false);
-    };
-    closeDesktopOverlay();
-    media.addEventListener("change", closeDesktopOverlay);
-    return () => media.removeEventListener("change", closeDesktopOverlay);
-  }, []);
+    if (!compactDock) setMobileDock(false);
+  }, [compactDock]);
   useEffect(() => {
     const keydown = (event: KeyboardEvent): void => {
       // A modal dialog that handled the key (for example its own Escape) marks
@@ -2075,6 +2095,7 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
   };
 
   const currentPreferences = (): WebPreferences => ({
+    loungeOpen,
     sidebarWidth,
     dockWidth,
     sidebarCollapsed,
@@ -2114,7 +2135,7 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
 
   const togglePaneOpen = (pane: PaneId): void => {
     const next = togglePane(paneLayout, pane);
-    if (next.panes.includes(pane) && matchMedia("(max-width: 1180px)").matches) {
+    if (next.panes.includes(pane) && compactDock) {
       setSidebarOpen(false);
       setMobileDock(true);
     }
@@ -2132,12 +2153,27 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
     );
   };
 
+  const toggleLounge = (open = !loungeOpen): void => {
+    setLoungeOpen(open);
+    persistLayout({ ...currentPreferences(), loungeOpen: open });
+  };
+  const toggleLoungeRef = useRef(toggleLounge);
+  toggleLoungeRef.current = toggleLounge;
+
+  const updateLoungeSettings = (update: Partial<LoungeSettings>): void => {
+    setLoungeSettings((current) => current === undefined ? current : { ...current, ...update });
+    void saveLoungeSettings(update).catch((cause: unknown) =>
+      setError(cause instanceof Error ? cause.message : "Could not save Lounge settings"),
+    );
+  };
+
   const applyWebPreferences = (preferences: WebPreferences): void => {
     setTheme(preferences.theme);
     setSidebarWidth(preferences.sidebarWidth);
     setDockWidth(preferences.dockWidth);
     setSidebarCollapsed(preferences.sidebarCollapsed);
     setChangesView(preferences.changesView);
+    setLoungeOpen(preferences.loungeOpen);
     if (preferences.panes.join() !== paneLayout.panes.join()) setPaneLayout(createPaneLayout(preferences.panes));
     persistLayout(preferences);
   };
@@ -2327,7 +2363,7 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
   };
 
   const toggleSidebar = (): void => {
-    if (matchMedia("(max-width: 760px)").matches) {
+    if (narrowFrame) {
       setSidebarOpen(false);
       return;
     }
@@ -2339,8 +2375,8 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
   const dockOpen = paneLayout.panes.length > 0;
   const effectiveDockWidth = dockOpen ? dockWidth : 0;
   const clampWidth = (side: "left" | "right", value: number): number => side === "left"
-    ? Math.round(Math.max(SIDEBAR_WIDTH_RANGE.min, Math.min(SIDEBAR_WIDTH_RANGE.max, value, window.innerWidth - effectiveDockWidth - 520)))
-    : Math.round(Math.max(DOCK_WIDTH_RANGE.min, Math.min(DOCK_WIDTH_RANGE.max, value, window.innerWidth - (sidebarCollapsed ? 56 : sidebarWidth) - 520)));
+    ? Math.round(Math.max(SIDEBAR_WIDTH_RANGE.min, Math.min(SIDEBAR_WIDTH_RANGE.max, value, frameSize.width - effectiveDockWidth - 520)))
+    : Math.round(Math.max(DOCK_WIDTH_RANGE.min, Math.min(DOCK_WIDTH_RANGE.max, value, frameSize.width - (sidebarCollapsed ? 56 : sidebarWidth) - 520)));
 
   const resizePanelBy = (side: "left" | "right", delta: number): void => {
     const next = clampWidth(side, (side === "left" ? sidebarWidth : dockWidth) + delta);
@@ -2358,7 +2394,9 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
     let next = side === "left" ? sidebarWidth : dockWidth;
     document.body.classList.add("resizing-panels");
     const move = (event: PointerEvent): void => {
-      next = clampWidth(side, side === "left" ? event.clientX : window.innerWidth - event.clientX);
+      const frame = frameRef.current?.getBoundingClientRect();
+      if (frame === undefined) return;
+      next = clampWidth(side, side === "left" ? event.clientX - frame.left : frame.right - event.clientX);
       if (side === "left") setSidebarWidth(next);
       else setDockWidth(next);
     };
@@ -2566,7 +2604,13 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
   const canLoadFullOutput =
     hasCapability("session.blob.read") && (preview?.readBlob !== undefined || client !== undefined);
 
-  return <main className={`shell${sidebarCollapsed && !sidebarOpen ? " sidebar-collapsed" : ""}${dockOpen ? " dock-open" : ""}${mobileDock ? " mobile-dock" : ""}`} style={{ "--sidebar-width": `${sidebarWidth}px`, "--dock-width": `${dockWidth}px` } as CSSProperties}>
+  if (authRequired) return <AuthRequired />;
+
+  const showLounge = bootstrap?.lounge !== undefined && loungeSettings !== undefined && loungeOpen;
+
+  return <div className={`lounge-layout${showLounge ? " with-lounge" : ""}`}>
+    <div ref={frameRef} className="app-frame">
+    <main className={`shell${sidebarCollapsed && !sidebarOpen ? " sidebar-collapsed" : ""}${dockOpen ? " dock-open" : ""}${mobileDock ? " mobile-dock" : ""}`} style={{ "--sidebar-width": `${sidebarWidth}px`, "--dock-width": `${dockWidth}px` } as CSSProperties}>
     <CommandPalette commands={commands} open={commandPaletteOpen} {...(commandPaletteError === undefined ? {} : { error: commandPaletteError })} onClose={() => { setCommandPaletteOpen(false); setCommandPaletteError(undefined); }} onSelect={selectCommand} />
     <button ref={mobileMenu} className="mobile-menu" aria-label="Open sessions" aria-controls="session-sidebar" aria-expanded={sidebarOpen} onClick={() => { setMobileDock(false); setSidebarOpen(true); }}><span></span><span></span><span></span></button>
     {sidebarOpen && <button className="scrim" aria-label="Close sessions" onClick={() => setSidebarOpen(false)} />}
@@ -2599,6 +2643,7 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
       <button ref={mobileDockClose} type="button" className="mobile-dock-close" onClick={() => setMobileDock(false)}><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m10 3-5 5 5 5" /></svg>Conversation</button>
       {dockOpen && <div className="panel-resizer right" role="separator" aria-orientation="vertical" aria-label="Resize pane dock" aria-valuemin={DOCK_WIDTH_RANGE.min} aria-valuemax={DOCK_WIDTH_RANGE.max} aria-valuenow={dockWidth} aria-valuetext={`${dockWidth} pixels wide`} aria-keyshortcuts="ArrowLeft ArrowRight" tabIndex={0} onPointerDown={(event) => resizePanel("right", event)} onKeyDown={(event) => { if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); resizePanelBy("right", event.key === "ArrowLeft" ? 16 : -16); } }} />}
       <Dock
+        tabbed={compactDock || frameSize.height <= 720}
         layout={paneLayout}
         onLayout={applyPaneLayout}
         renderControls={(pane) => pane === "files"
@@ -2645,5 +2690,24 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
         setNewSessionError(undefined);
       }}
     />}
-  </main>;
+  </main>
+    </div>
+    {showLounge && <LoungePane storage={browserLoungeStorage} settings={loungeSettings} onSettings={updateLoungeSettings} onClose={() => toggleLounge(false)} />}
+  </div>;
+}
+
+function AuthRequired(): React.JSX.Element {
+  return (
+    <main className="auth-required">
+      <h1>This browser is not signed in</h1>
+      <p>
+        Axl web links work once and expire after 60 seconds, so a copied address cannot sign in a
+        second browser.
+      </p>
+      <p>
+        In the terminal running <code>axl web</code>, press Enter to print a new link, or run{" "}
+        <code>axl web --no-open --print-url</code>. Then open the link in this browser.
+      </p>
+    </main>
+  );
 }

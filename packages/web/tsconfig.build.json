@@ -14,6 +14,7 @@
   "references": [
     { "path": "../protocol/tsconfig.build.json" },
     { "path": "../extensions/api/tsconfig.build.json" },
+    { "path": "../extensions/lounge/tsconfig.build.json" },
     { "path": "../sdk/tsconfig.build.json" },
     { "path": "../ui/tsconfig.build.json" }
   ]
