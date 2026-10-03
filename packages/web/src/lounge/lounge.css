@@ -113,7 +113,7 @@
 .lg-btn { min-height: 38px; padding: 0 18px; border: 1px solid var(--line); border-radius: 11px; background: var(--panel); color: var(--text); font-size: 13px; font-weight: 650; cursor: pointer; transition: background var(--fast), transform 90ms; }
 .lg-btn:hover { background: var(--selected); }
 .lg-btn:active { transform: scale(0.97); }
-.lg-btn.primary { border-color: var(--accent); background: var(--accent); color: #fff; box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 35%, transparent); }
+.lg-btn.primary { border-color: var(--accent); background: var(--accent); color: #fff; }
 .lg-btn.primary:hover { background: color-mix(in srgb, var(--accent) 86%, #fff); }
 .lg-btn.danger { border-color: color-mix(in srgb, var(--red) 55%, transparent); color: var(--red); }
 .lg-card .lg-seg { display: flex; }
@@ -137,11 +137,11 @@
 .lg-notice button { flex: none; height: 26px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); font-size: 11.5px; font-weight: 600; cursor: pointer; }
 .lg-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 18px; }
 
-.lg-overlay { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; padding: 16px; background: color-mix(in srgb, var(--panel) 64%, transparent); backdrop-filter: blur(7px); animation: lg-fade 180ms ease-out; }
+.lg-overlay { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; padding: 16px; background: color-mix(in srgb, var(--bg) 78%, transparent); animation: lg-fade 180ms ease-out; }
 .lg-card { width: min(380px, 100%); max-height: 100%; overflow: auto; padding: 22px; border: 1px solid var(--line); border-radius: 18px; background: var(--raised); box-shadow: 0 28px 70px var(--shadow); animation: lg-pop 220ms var(--ease-out); }
 .lg-result { text-align: center; }
 .lg-result h3 { margin: 0; font-size: 21px; font-weight: 750; letter-spacing: -0.03em; }
-.lg-result.win h3 { background: linear-gradient(90deg, var(--green), color-mix(in srgb, var(--green) 40%, var(--accent-strong))); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.lg-result.win h3 { color: var(--green); }
 .lg-result.lose h3 { color: var(--red); }
 .lg-result .lg-hint { margin-top: 8px; }
 .lg-result .lg-field { text-align: left; }
@@ -257,7 +257,7 @@
 .chess-sq.last::before { position: absolute; inset: 0; background: rgba(155, 199, 0, 0.41); content: ""; }
 .chess-sq.selected::before { position: absolute; inset: 0; background: rgba(20, 85, 30, 0.5); content: ""; }
 .chess-sq.hint::before { position: absolute; inset: 0; background: rgba(70, 200, 120, 0.6); content: ""; animation: lg-glow 1.2s infinite alternate; }
-.chess-sq.check::before { position: absolute; inset: 0; background: radial-gradient(circle, rgba(255, 60, 60, 0.9), rgba(255, 60, 60, 0) 72%); content: ""; }
+.chess-sq.check::before { position: absolute; inset: 0; background: rgba(235, 64, 52, 0.75); content: ""; }
 .chess-sq.wrong::before { position: absolute; inset: 0; background: rgba(255, 70, 70, 0.55); content: ""; animation: lg-fade 600ms reverse forwards; }
 .chess-sq.move::after { position: absolute; top: 50%; left: 50%; width: 30%; height: 30%; border-radius: 50%; background: rgba(20, 85, 30, 0.5); content: ""; transform: translate(-50%, -50%); z-index: 3; pointer-events: none; }
 .chess-sq.capture::after { position: absolute; inset: 4%; border: 5px solid rgba(20, 85, 30, 0.45); border-radius: 50%; content: ""; z-index: 3; pointer-events: none; }
@@ -270,7 +270,7 @@
 .chess-piece-box.lifted { opacity: 0.35; }
 .chess-piece { display: block; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25)); user-select: none; -webkit-user-drag: none; }
 .chess-ghost { position: absolute; z-index: 9; width: calc(var(--board) / 8 * 1.15); height: calc(var(--board) / 8 * 1.15); transform: translate(-50%, -58%); pointer-events: none; filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.4)); }
-.chess-promote { position: absolute; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; gap: 8px; background: color-mix(in srgb, var(--panel) 70%, transparent); backdrop-filter: blur(4px); }
+.chess-promote { position: absolute; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; gap: 8px; background: color-mix(in srgb, var(--panel) 70%, transparent); }
 .chess-promote button { width: calc(var(--board) / 6); height: calc(var(--board) / 6); padding: 0; border: 1px solid var(--line); border-radius: 12px; background: var(--c-light); cursor: pointer; transition: transform 100ms; }
 .chess-promote button:hover { transform: scale(1.08); }
 .chess-info { display: grid; flex: none; width: min(calc(100cqw - 20px), calc(100cqh - var(--reserve, 118px)), 620px); gap: 6px; }

@@ -155,9 +155,14 @@ function Board({
     const previous = stateRef.current;
     stateRef.current = next;
     setState(next);
-    if (animate && next.lastMove !== previous.lastMove && motion)
-      setAnim({ from: next.lastMove.move.from, to: next.lastMove.move.to, id: ++animId.current });
-    else if (next.lastMove !== previous.lastMove) setAnim(undefined);
+    // The engine copies lastMove on every change, so compare by value. Animating on identity
+    // replayed the slide each time a piece was selected.
+    const a = previous.lastMove;
+    const b = next.lastMove;
+    const moved = a.move.from !== b.move.from || a.move.to !== b.move.to || a.actor !== b.actor;
+    if (!moved) return;
+    if (animate && motion) setAnim({ from: b.move.from, to: b.move.to, id: ++animId.current });
+    else setAnim(undefined);
   };
 
   useEffect(() => {
