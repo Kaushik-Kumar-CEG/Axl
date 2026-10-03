@@ -24,6 +24,12 @@ const GAMES: readonly Game[] = [
     Component: lazy(() => import("./lounge/wordle.tsx")),
   },
   {
+    id: "axl.lounge.multiword",
+    name: "Multiword",
+    blurb: "One guess, up to eight Wordle boards at once.",
+    Component: lazy(() => import("./lounge/multiword.tsx")),
+  },
+  {
     id: "axl.lounge.2048",
     name: "2048",
     blurb: "Slide and merge tiles to reach 2048.",

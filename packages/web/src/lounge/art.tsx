@@ -21,6 +21,25 @@ export function GameArt({ id }: { readonly id: string }): React.JSX.Element {
         ))}
       </div>
     );
+  if (id === "axl.lounge.multiword")
+    return (
+      <div className="art art-multi" aria-hidden="true">
+        {[
+          ["", "exact", "", "present", ""],
+          ["present", "", "exact", "", ""],
+          ["exact", "exact", "present", "", "exact"],
+          ["", "present", "", "exact", "exact"],
+        ].map((board, boardIndex) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: static art
+          <div key={boardIndex}>
+            {board.map((kind, tile) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: static art
+              <i key={tile} className={kind} />
+            ))}
+          </div>
+        ))}
+      </div>
+    );
   if (id === "axl.lounge.2048")
     return (
       <div className="art art-2048" aria-hidden="true">

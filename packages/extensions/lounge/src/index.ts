@@ -216,3 +216,42 @@ export {
   sudokuSaveJson,
   updateSudokuSave,
 } from "./sudoku-state.ts";
+export {
+  createMultiword,
+  MULTIWORD_BOARD_COUNTS,
+  MULTIWORD_SELECTION_VERSION,
+  type MultiwordAction,
+  type MultiwordBoards,
+  type MultiwordBoardView,
+  type MultiwordIssue,
+  type MultiwordSelection,
+  type MultiwordState,
+  type MultiwordStatus,
+  multiwordAnswers,
+  multiwordAttempts,
+  multiwordBoard,
+  multiwordLetterEvidence,
+  reduceMultiword,
+} from "./multiword.ts";
+export {
+  createEmptyMultiwordSave,
+  MULTIWORD_MAX_COMPLETIONS,
+  MULTIWORD_STORAGE_SCHEMA_VERSION,
+  type MultiwordCompletion,
+  type MultiwordPreferences,
+  type MultiwordSaveDocument,
+  MultiwordSaveError,
+  type MultiwordSaveErrorCode,
+  type MultiwordStatistics,
+  mergeMultiwordCompletions,
+  multiwordCompletionKey,
+  multiwordSaveJson,
+  multiwordStatistics,
+  parseMultiwordSave,
+  updateMultiwordSave,
+} from "./multiword-state.ts";
+export {
+  type MultiwordActivityOptions,
+  multiwordActivity,
+  multiwordTerminalLayout,
+} from "./multiword-activity.ts";

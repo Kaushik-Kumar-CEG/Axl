@@ -75,6 +75,10 @@
 .art { display: grid; justify-content: center; height: 104px; place-items: center; border-radius: 11px; background: color-mix(in srgb, var(--text) 5%, var(--panel)); overflow: hidden; }
 .art-wordle { --t: 28px; display: flex; gap: 4px; }
 .art-wordle .lg-tile { font-size: 15px; }
+.art-multi { grid-template-columns: repeat(4, auto); gap: 6px; align-content: center; }
+.art-multi div { display: grid; grid-template-columns: repeat(5, 5px); gap: 1.5px; }
+.art-multi i { width: 5px; height: 5px; border-radius: 1px; background: var(--lg-line); }
+.art-multi i.exact { background: var(--lg-correct); } .art-multi i.present { background: var(--lg-present); }
 .art-2048 { grid-template-columns: repeat(2, 42px); gap: 5px; align-content: center; }
 .art-2048 .g2048-tile { width: 42px; height: 42px; font-size: 17px; }
 .art-mines { grid-template-columns: repeat(4, 24px); gap: 2px; align-content: center; }
@@ -314,3 +318,20 @@
 @container fit (max-height: 300px) {
   .lg-bar { padding-top: 8px; }
 }
+
+/* ---------- Multiword ---------- */
+.lg-multiword .lg-fit { gap: 12px; }
+.mw-scroll { display: flex; min-height: 0; max-width: 100%; flex: 0 1 auto; align-items: safe center; justify-content: safe center; overflow: auto; }
+.mw-boards { --t: 20px; margin: auto; display: grid; flex: none; justify-content: center; gap: 10px; }
+.mw-board { display: grid; align-content: start; gap: 2px; }
+.mw-row { display: grid; grid-template-columns: repeat(5, var(--t)); gap: 2px; }
+.mw-boards .lg-tile { border-width: 1px; border-radius: calc(var(--t) * 0.16); font-size: calc(var(--t) * 0.58); }
+.mw-boards .lg-tile i { top: 0; right: 1px; font-size: calc(var(--t) * 0.3); }
+.mw-keys { gap: 4px; }
+.mw-keys .lg-keys-row { gap: 4px; }
+.mw-key { position: relative; overflow: hidden; }
+.mw-seg { position: absolute; right: 0; bottom: 0; left: 0; display: flex; height: 5px; }
+.mw-seg i { flex: 1; }
+.mw-seg i.exact { background: var(--lg-correct); }
+.mw-seg i.present { background: var(--lg-present); }
+.mw-seg i.absent { background: color-mix(in srgb, #000 55%, var(--lg-absent)); }

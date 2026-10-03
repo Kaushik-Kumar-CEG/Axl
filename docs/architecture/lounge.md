@@ -7,7 +7,7 @@ Status: implemented terminal and web client feature
 
 ## Scope
 
-Axl Lounge provides five offline games for the terminal and web clients: Wordle, 2048, Minesweeper, Sudoku, and Chess Puzzles. The Lounge package contains deterministic game rules and semantic activity renderers. It uses only the public `terminal.activities` and `terminal.activity-storage` extension capabilities.
+Axl Lounge provides six offline games for the terminal and web clients: Wordle, Multiword, 2048, Minesweeper, Sudoku, and Chess Puzzles. The Lounge package contains deterministic game rules and semantic activity renderers. It uses only the public `terminal.activities` and `terminal.activity-storage` extension capabilities.
 
 ## Authority and ownership
 
@@ -52,6 +52,7 @@ Disabling or disposing Lounge removes registrations, listeners, timers, queued c
 ## Shipped games
 
 - **Wordle:** reviewed offline dictionaries, duplicate-aware scoring, normal and hard modes, deterministic daily and practice selection, and six attempts.
+- **Multiword:** two, four, or eight Wordle boards that score every guess at once, with 7, 9, or 13 attempts. Answers are distinct and chosen deterministically for Daily and Practice, solved boards stop, and the shared keyboard shows the evidence for each board. It reuses the Wordle dictionary and scoring, and saves by replaying guesses. The terminal activity fits an even grid of boards to the viewport and reports the size it needs when the terminal is too small.
 - **2048:** deterministic spawning, one merge per tile per move, exact one-move undo, win continuation, and game-over detection.
 - **Minesweeper:** delayed deterministic placement, safe first reveal and neighbors, three presets, flags, chords, viewport navigation, mouse input, and active-play timing.
 - **Sudoku:** twelve versioned unique-solution puzzles, three difficulties, notes, conflicts, hints, undo, and a traditional grid with strong 3×3 separators.
