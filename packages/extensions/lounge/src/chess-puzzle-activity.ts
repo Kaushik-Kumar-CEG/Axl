@@ -1463,9 +1463,9 @@ export function chessPuzzleActivity(options: ChessPuzzleActivityOptions): Termin
           active = false;
           focused = false;
           cancelReply();
-          const updated = updateChessPuzzleSave(document, state, preferences);
-          document = updated.document;
-          await writer?.dispose(document, updated.completionAdded);
+          // Every state change already enqueued its save. The host revokes storage before
+          // dispose runs, so a new write here would always fail with a stale context.
+          await writer?.dispose();
         },
       };
     },
