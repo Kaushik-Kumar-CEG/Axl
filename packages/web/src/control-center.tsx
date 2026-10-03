@@ -52,6 +52,7 @@ export function ControlCenter({
   providerError,
   providerLogin,
   settingsError,
+  webTools,
   mcp,
   mcpError,
   mcpBusy,
@@ -87,6 +88,8 @@ export function ControlCenter({
     readonly method: ProviderLoginMethod;
   } | undefined;
   readonly settingsError?: string | undefined;
+  /** Web search and fetch controls for the open session, when its profile supports them. */
+  readonly webTools?: React.ReactNode;
   readonly mcp?: McpConfigListResult | undefined;
   readonly mcpError?: string | undefined;
   readonly mcpBusy: boolean;
@@ -142,8 +145,9 @@ export function ControlCenter({
         <label className="setting-range"><span><strong>Pane dock width</strong><small>{preferences.dockWidth}px</small></span><input type="range" min={DOCK_WIDTH_RANGE.min} max={DOCK_WIDTH_RANGE.max} step="8" value={preferences.dockWidth} onChange={(event) => onPreferences({ ...preferences, dockWidth: Number(event.target.value) })} /></label>
         <div className="setting-row"><span><strong>Panes</strong><small>Tiles open in the dock beside the conversation</small></span><div className="setting-segments">{PANE_IDS.map((pane) => { const open = preferences.panes.includes(pane); return <button key={pane} className={open ? "active" : ""} aria-pressed={open} onClick={() => onPreferences({ ...preferences, panes: open ? preferences.panes.filter((id) => id !== pane) : PANE_IDS.filter((id) => id === pane || preferences.panes.includes(id)) })}>{PANE_LABELS[pane]}</button>; })}</div></div>
         <div className="setting-row"><span><strong>Appearance</strong><small>Follow your device or choose a fixed theme</small></span><div className="setting-segments" aria-label="Appearance"><button className={theme === "system" ? "active" : ""} aria-pressed={theme === "system"} onClick={() => onTheme("system")}>System</button><button className={theme === "light" ? "active" : ""} aria-pressed={theme === "light"} onClick={() => onTheme("light")}>Light</button><button className={theme === "dark" ? "active" : ""} aria-pressed={theme === "dark"} onClick={() => onTheme("dark")}>Dark</button></div></div>
+        {webTools !== undefined && <section className="setting-section">{webTools}</section>}
         {settingsError && <p className="provider-error" role="alert">{settingsError}</p>}
-        <section className="shortcut-list" aria-labelledby="keyboard-shortcuts"><strong id="keyboard-shortcuts">Keyboard shortcuts</strong><dl><div><dt><kbd>Ctrl/⌘ K</kbd></dt><dd>Commands</dd></div><div><dt><kbd>Ctrl/⌘ L</kbd></dt><dd>Models</dd></div><div><dt><kbd>Shift Tab</kbd></dt><dd>Cycle effort in composer</dd></div><div><dt><kbd>Ctrl/⌘ F</kbd></dt><dd>Search transcript</dd></div><div><dt><kbd>Alt ↑</kbd></dt><dd>Restore queued prompts</dd></div><div><dt><kbd>Esc</kbd></dt><dd>Close overlay, then restore and interrupt</dd></div></dl></section>
+        <section className="shortcut-list" aria-labelledby="keyboard-shortcuts"><strong id="keyboard-shortcuts">Keyboard shortcuts</strong><dl><div><dt><kbd>Enter</kbd></dt><dd>Send, or steer while a response runs</dd></div><div><dt><kbd>Alt Enter</kbd></dt><dd>Send as a follow-up</dd></div><div><dt><kbd>Ctrl/⌘ Enter</kbd></dt><dd>Interrupt and deliver</dd></div><div><dt><kbd>!</kbd></dt><dd>Start a message with ! to run a shell command, or !! to leave out its output</dd></div><div><dt><kbd>Ctrl/⌘ K</kbd></dt><dd>Commands</dd></div><div><dt><kbd>Ctrl/⌘ L</kbd></dt><dd>Models</dd></div><div><dt><kbd>Shift Tab</kbd></dt><dd>Cycle effort in composer</dd></div><div><dt><kbd>Ctrl/⌘ F</kbd></dt><dd>Search transcript</dd></div><div><dt><kbd>Alt ↑</kbd></dt><dd>Restore queued prompts</dd></div><div><dt><kbd>Esc</kbd></dt><dd>Close overlay, then restore and interrupt</dd></div></dl></section>
       </div> : tab === "providers" ? <div className="providers-pane">
         <div className="providers-heading"><span><strong>Model providers</strong><small>Authentication and catalog state from the daemon</small></span>{providerRefresh?.providerId === undefined && providerRefresh !== undefined ? <button onClick={onCancelRefresh}>Cancel refresh</button> : <button title={canRefresh ? undefined : "Unavailable because provider catalog refresh was not granted"} onClick={() => onRefresh()} disabled={!canRefresh || providerLoading || providerRefresh !== undefined}>Refresh all</button>}</div>
         {providerError && <p className="provider-error" role="alert">{providerError}</p>}
