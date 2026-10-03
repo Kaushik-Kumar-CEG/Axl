@@ -1587,6 +1587,7 @@ class HostedActivity implements HostedActivityInstance {
     const run = async <T>(
       signal: AbortSignal | undefined,
       operation: (combined: AbortSignal) => Promise<T>,
+      committing = false,
     ): Promise<T> => {
       this.assertActive();
       const epoch = this.epochValue;
@@ -1613,7 +1614,12 @@ class HostedActivity implements HostedActivityInstance {
           }
           throw error;
         }
-        if (this.stateValue !== "active" || this.epochValue !== epoch || combined.aborted) {
+        // A write or reset that the adapter confirmed has already happened. Reporting it as
+        // aborted would leave the activity holding a stale revision.
+        if (
+          !committing &&
+          (this.stateValue !== "active" || this.epochValue !== epoch || combined.aborted)
+        ) {
           throw new ActivityStorageError("aborted", "Activity storage context became stale");
         }
         return result;
@@ -1641,25 +1647,29 @@ class HostedActivity implements HostedActivityInstance {
           throw new ActivityStorageError("invalid", "Schema version must be a positive integer");
         }
         const checked = validateJson(value);
-        return run(signal, async (combined) => {
-          const stored = validateStoredValue(
-            await adapter.write(scope, expectedRevision, schemaVersion, checked, combined),
-          );
-          const nextRevision = expectedRevision === null ? 1 : expectedRevision + 1;
-          if (stored.revision !== nextRevision || stored.schemaVersion !== schemaVersion) {
-            throw new ActivityStorageError(
-              "invalid",
-              "Storage adapter returned an invalid revision",
+        return run(
+          signal,
+          async (combined) => {
+            const stored = validateStoredValue(
+              await adapter.write(scope, expectedRevision, schemaVersion, checked, combined),
             );
-          }
-          return stored;
-        });
+            const nextRevision = expectedRevision === null ? 1 : expectedRevision + 1;
+            if (stored.revision !== nextRevision || stored.schemaVersion !== schemaVersion) {
+              throw new ActivityStorageError(
+                "invalid",
+                "Storage adapter returned an invalid revision",
+              );
+            }
+            return stored;
+          },
+          true,
+        );
       },
       reset: (expectedRevision, signal?: AbortSignal) => {
         if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) {
           throw new ActivityStorageError("invalid", "Expected revision must be a positive integer");
         }
-        return run(signal, (combined) => adapter.reset(scope, expectedRevision, combined));
+        return run(signal, (combined) => adapter.reset(scope, expectedRevision, combined), true);
       },
     };
     return Object.freeze(storage);

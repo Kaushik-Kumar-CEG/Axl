@@ -286,12 +286,22 @@ export class ActivitySurfaceHost {
     try {
       this.instance = this.options.host.createActivity(activityId, {
         now: this.options.now ?? (() => performance.now()),
-        schedule:
-          this.options.schedule ??
-          ((delayMs, callback) => {
-            const timer = setTimeout(callback, Math.max(FRAME_INTERVAL_MS, delayMs));
-            timer.unref?.();
-            return () => clearTimeout(timer);
+        // A throwing timer callback would be an uncaught exception that ends the terminal.
+        schedule: (delayMs, callback) =>
+          (
+            this.options.schedule ??
+            ((delay, run) => {
+              const timer = setTimeout(run, Math.max(FRAME_INTERVAL_MS, delay));
+              timer.unref?.();
+              return () => clearTimeout(timer);
+            })
+          )(delayMs, () => {
+            try {
+              callback();
+            } catch (error) {
+              this.report(error);
+              this.suspend("attention");
+            }
           }),
         invalidate: this.options.invalidate,
         status: () => this.options.monitor().status,

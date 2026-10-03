@@ -724,6 +724,56 @@ test("late storage completion and stale activity epochs are rejected", async () 
   await host.dispose();
 });
 
+test("a write the adapter confirmed after a pause still reports its revision", async () => {
+  let publicStorage: ActivityStorage | undefined;
+  let finishWrite: (() => void) | undefined;
+  const adapter: ActivityStorageAdapter = {
+    read: () => Promise.resolve(undefined),
+    write: (_scope, _revision, schemaVersion, value) =>
+      new Promise((resolvePromise) => {
+        finishWrite = () => resolvePromise({ revision: 1, schemaVersion, value });
+      }),
+    reset: () => Promise.resolve(),
+  };
+  const host = new TerminalExtensionHost([
+    {
+      manifest: {
+        id: "test.commit",
+        name: "Commit",
+        capabilities: ["terminal.activities", "terminal.activity-storage"],
+      },
+      activate(api) {
+        api.registerActivity({
+          id: "test.commit-game",
+          name: "Commit game",
+          description: "Tests a write that lands during a pause",
+          category: "game",
+          create(context) {
+            publicStorage = context.storage;
+            return {
+              render: () => ({ lines: [] }),
+              handleInput: () => undefined,
+              pause: () => undefined,
+              resume: () => undefined,
+              serialize: () => undefined,
+              dispose: () => undefined,
+            };
+          },
+        });
+      },
+    },
+  ]);
+  await host.activate();
+  const instance = host.createActivity("test.commit-game", activityServices(adapter));
+  if (publicStorage === undefined) throw new Error("Activity storage was not injected");
+  const pending = publicStorage.write(null, 1, { board: [1] });
+  instance.pause(instance.epoch, "attention");
+  finishWrite?.();
+  assert.equal((await pending).revision, 1);
+  await instance.dispose();
+  await host.dispose();
+});
+
 test("duplicate activity registration rolls back the failing activation", async () => {
   const host = new TerminalExtensionHost([
     {

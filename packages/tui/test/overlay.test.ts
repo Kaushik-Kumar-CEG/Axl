@@ -684,6 +684,66 @@ test("hostile monitor text cannot move or escape the activity board", async () =
   await host.dispose();
 });
 
+test("a throwing scheduled activity callback is reported and pauses the activity", async () => {
+  const callbacks: Array<() => void> = [];
+  const reported: string[] = [];
+  const pauses: string[] = [];
+  const host = new TerminalExtensionHost([
+    {
+      manifest: { id: "test.timer", name: "Timer", capabilities: ["terminal.activities"] },
+      activate(api) {
+        api.registerActivity({
+          id: "test.timer-board",
+          name: "Timer board",
+          description: "Throws from a timer",
+          category: "game",
+          create(activity) {
+            activity.schedule(10, () => {
+              throw new Error("timer failed");
+            });
+            return {
+              render: () => ({ lines: [] }),
+              handleInput: () => undefined,
+              pause: (reason) => {
+                pauses.push(reason);
+              },
+              resume: () => undefined,
+              serialize: () => undefined,
+              dispose: () => undefined,
+            };
+          },
+        });
+      },
+    },
+  ]);
+  await host.activate();
+  const surface = new ActivitySurfaceHost({
+    host,
+    palette: () => PLAIN_PALETTE,
+    invalidate: () => undefined,
+    monitor,
+    presentation: () => ({ reducedMotion: false, textOnly: false }),
+    now: () => 0,
+    schedule: (_delay, callback) => {
+      callbacks.push(callback);
+      return () => undefined;
+    },
+    returnToTranscript: () => undefined,
+    returnToEditor: () => undefined,
+    openWorkspaceReview: () => undefined,
+    reportError: (error) => {
+      reported.push(error.message);
+    },
+  });
+  surface.open("test.timer-board");
+  assert.equal(callbacks.length, 1);
+  assert.doesNotThrow(() => callbacks[0]?.());
+  assert.deepEqual(reported, ["timer failed"]);
+  assert.deepEqual(pauses, ["attention"]);
+  await surface.dispose();
+  await host.dispose();
+});
+
 test("one thousand activity open and close cycles release instances and timers", async () => {
   let creations = 0;
   let disposals = 0;

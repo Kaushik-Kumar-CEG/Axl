@@ -2173,9 +2173,13 @@ export class AxlApp {
     return this.fullscreenRowsCache;
   }
 
-  private invalidateFullscreenRows(): void {
+  /**
+   * Spinner ticks and streaming updates only change the live rows. They keep the Agent pane's
+   * settled transcript cache, because rebuilding it replays every stored event.
+   */
+  private invalidateFullscreenRows(settledChanged = true): void {
     this.fullscreenRowsCache = undefined;
-    this.activityAgentRowsCache = undefined;
+    if (settledChanged) this.activityAgentRowsCache = undefined;
   }
 
   private invalidateScreens(): void {
@@ -2209,14 +2213,14 @@ export class AxlApp {
         .emit({ type: working ? "working.start" : "working.end" })
         .then((errors) => this.reportExtensionErrors(errors));
     }
-    this.invalidateFullscreenRows();
+    this.invalidateFullscreenRows(false);
     if (working && this.spinnerTimer === null) {
       const started = Date.now();
       this.view.elapsedSeconds = 0;
       this.spinnerTimer = setInterval(() => {
         this.spinnerIndex += 1;
         this.view.elapsedSeconds = Math.floor((Date.now() - started) / 1000);
-        this.invalidateFullscreenRows();
+        this.invalidateFullscreenRows(false);
         this.redraw();
       }, 120);
       this.spinnerTimer.unref?.();
@@ -2867,7 +2871,7 @@ export class AxlApp {
       const content = this.options.readClipboard
         ? await this.options.readClipboard()
         : await readClipboardText();
-      if (this.overlays.active !== overlay) return;
+      if (this.attentionOverlay.active !== overlay && this.overlays.active !== overlay) return;
       if (typeof content === "string") overlay.paste?.(content);
       else this.notice = this.view.palette.error("✖ paste text into login fields, not an image");
     } catch (error) {
@@ -5825,7 +5829,7 @@ export class AxlApp {
         }
       },
     });
-    this.overlays.replace(dialog);
+    this.attentionOverlay.replace(dialog);
     this.redraw();
   }
 
