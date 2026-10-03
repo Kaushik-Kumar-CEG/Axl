@@ -1526,6 +1526,47 @@ test("a fake activity shows live agent work and stays open on completion", async
   );
 });
 
+test("activities stay available after the host replaces the extension set", async (context) => {
+  const extension: TerminalExtension = {
+    manifest: {
+      id: "test.replaced-host",
+      name: "Replaced host",
+      capabilities: ["terminal.activities"],
+    },
+    activate(api) {
+      api.registerActivity({
+        id: "test.replaced-game",
+        name: "Replaced Game",
+        description: "Registered through the replaced extension host",
+        category: "game",
+        create: () => ({
+          render: () => ({ lines: [[{ text: "REPLACED ACTIVITY", style: "accent" }]] }),
+          handleInput: () => undefined,
+          pause: () => undefined,
+          resume: () => undefined,
+          serialize: () => undefined,
+          dispose: () => undefined,
+        }),
+      });
+    },
+  };
+  const { socketPath, directory } = await startStack(context);
+  const input = new PassThrough();
+  const { output, text } = captureOutput();
+  const app = await AxlApp.start({
+    client: await connectUnixClient(socketPath),
+    input,
+    output,
+    cwd: directory,
+    color: false,
+    extensions: [extension],
+    loadExtensions: async () => [],
+  });
+  context.after(() => app.stop());
+  input.write("/play\r");
+  await until(() => text().includes("REPLACED ACTIVITY"), "activity from the replaced host");
+});
+
 test("Ctrl+P keeps the wide Agent pane live and returns to the same activity", async (context) => {
   const { socketPath, directory } = await startStack(context);
   const input = new PassThrough();

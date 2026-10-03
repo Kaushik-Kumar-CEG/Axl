@@ -908,8 +908,12 @@ export class AxlApp {
       uiFor: (signal) => this.extensionCommandContext(signal),
       initiallyInactiveExtensionIds: this.loungeEnabled ? [] : this.loungeExtensionIds,
     });
+    const app = this;
     this.activitySurface = new ActivitySurfaceHost({
-      host: this.extensionHost,
+      // The host is replaced on reload and session change, so the surface must read it live.
+      get host() {
+        return app.extensionHost;
+      },
       palette: () => this.view.palette,
       invalidate: () => this.redraw(),
       monitor: () => this.activityMonitorSnapshot(),
@@ -5513,6 +5517,7 @@ export class AxlApp {
     ];
     const replacement = new TerminalExtensionHost(definitions, {
       uiFor: (signal) => this.extensionCommandContext(signal),
+      initiallyInactiveExtensionIds: this.loungeEnabled ? [] : this.loungeExtensionIds,
     });
     await replacement.activate();
     try {
@@ -5546,6 +5551,8 @@ export class AxlApp {
     this.extensionCompletionRequest?.controller.abort();
     this.extensionCompletionRequest = undefined;
     this.extensionCompletionResult = undefined;
+    // Disposing the previous host disposes its activity instances, so close the surface first.
+    await this.activitySurface.reset();
     const previous = this.extensionHost;
     this.extensionHost = replacement;
     this.extensionWidgetsAbove = new ExtensionWidgetsComponent(
