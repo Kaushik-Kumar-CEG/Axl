@@ -1235,8 +1235,12 @@ async function main(): Promise<void> {
 
   const loungeEnabled = settings.loungeEnabled ?? true;
   const loungeStorage = new LoungeStorage(join(axlHome, "lounge"));
+  let loungeSettingsError: string | undefined;
   const loungeSettings = loungeEnabled
-    ? await loungeStorage.loadSettings()
+    ? await loungeStorage.loadSettings().catch((error: unknown) => {
+        loungeSettingsError = error instanceof Error ? error.message : String(error);
+        return DEFAULT_LOUNGE_SETTINGS;
+      })
     : DEFAULT_LOUNGE_SETTINGS;
 
   let settingsWrite: Promise<void> = Promise.resolve();
@@ -1349,6 +1353,10 @@ async function main(): Promise<void> {
   timing.mark("first paint");
   const timingSummary = timing.summary();
   if (timingSummary !== undefined) app.showLocalNotice(timingSummary);
+  if (loungeSettingsError !== undefined)
+    app.showLocalNotice(
+      `Lounge settings could not be read, so defaults are in use: ${loungeSettingsError}`,
+    );
 }
 
 main().catch((error: unknown) => {

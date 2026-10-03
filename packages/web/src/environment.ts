@@ -56,7 +56,7 @@ export interface WebBootstrap {
   readonly webSocketPath: string;
   readonly preferences: WebPreferences;
   /** Present only when the host enabled Lounge. */
-  readonly lounge?: { readonly settings: LoungeSettings };
+  readonly lounge?: { readonly settings: LoungeSettings; readonly error?: string };
   readonly hostCapabilities: readonly WebHostCapability[];
 }
 
@@ -81,6 +81,7 @@ function fragment(): { readonly token?: string; readonly sessionId?: SessionId }
     try {
       sessionId = parseSessionId(requestedSession);
     } catch (cause) {
+      retainBrowserSession();
       throw new Error(`The session id in the address is not valid: ${requestedSession}`, { cause });
     }
   }
@@ -172,6 +173,9 @@ export function parseBootstrap(value: unknown): WebBootstrap {
       : {
           lounge: {
             settings: parseLoungeSettings((record.lounge as { settings?: unknown }).settings),
+            ...(typeof (record.lounge as { error?: unknown }).error === "string"
+              ? { error: (record.lounge as { error: string }).error }
+              : {}),
           },
         }),
     hostCapabilities: record.hostCapabilities as readonly WebHostCapability[],

@@ -115,10 +115,14 @@ function Boards({
   );
   const [size, setSize] = useState<{ width: number; height: number }>();
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const resultTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
     if (autoFocus) root.current?.focus({ preventScroll: true });
-    return () => clearTimeout(toastTimer.current);
+    return () => {
+      clearTimeout(toastTimer.current);
+      clearTimeout(resultTimer.current);
+    };
   }, [autoFocus]);
 
   useLayoutEffect(() => {
@@ -174,7 +178,8 @@ function Boards({
       setRevealRow(current.guesses.length);
       if (next.status !== "active") {
         setShowResult(false);
-        setTimeout(() => setShowResult(true), motion ? 1_800 : 200);
+        clearTimeout(resultTimer.current);
+        resultTimer.current = setTimeout(() => setShowResult(true), motion ? 1_800 : 200);
       }
     }
     commit(next);
@@ -193,6 +198,7 @@ function Boards({
       existing.boards === selection.boards;
     setPrefs(nextPrefs);
     setMenu(false);
+    clearTimeout(resultTimer.current);
     setRevealRow(undefined);
     if (same && existing !== undefined) {
       setShowResult(existing.status !== "active");

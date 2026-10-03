@@ -125,11 +125,18 @@ function WordleBoard({
   );
   const [stats, setStats] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const resultTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
     if (autoFocus) root.current?.focus({ preventScroll: true });
   }, [autoFocus]);
-  useEffect(() => () => clearTimeout(toastTimer.current), []);
+  useEffect(
+    () => () => {
+      clearTimeout(toastTimer.current);
+      clearTimeout(resultTimer.current);
+    },
+    [],
+  );
 
   const say = (text: string): void => {
     setToast(text);
@@ -172,7 +179,8 @@ function WordleBoard({
       setRevealRow(current.guesses.length);
       if (next.status !== "active") {
         setShowResult(false);
-        setTimeout(() => setShowResult(true), motion ? 2_000 : 200);
+        clearTimeout(resultTimer.current);
+        resultTimer.current = setTimeout(() => setShowResult(true), motion ? 2_000 : 200);
       }
     }
     commit(next);
@@ -191,6 +199,7 @@ function WordleBoard({
       existing.difficulty === nextPrefs.difficulty;
     setPrefs(nextPrefs);
     setMenu(false);
+    clearTimeout(resultTimer.current);
     setRevealRow(undefined);
     if (sameDaily && existing !== undefined) {
       setShowResult(existing.status !== "active");

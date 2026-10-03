@@ -636,6 +636,8 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
       activeClient = environment.client; setClient(environment.client); setBootstrap(environment.bootstrap);
       setLoungeOpen(environment.bootstrap.preferences.loungeOpen);
       setLoungeSettings(environment.bootstrap.lounge?.settings);
+      if (environment.bootstrap.lounge?.error !== undefined)
+        setError(`Lounge settings could not be read, so defaults are in use: ${environment.bootstrap.lounge.error}`);
       const providers = new ProviderDirectoryController(environment.client);
       const configuration = new SessionConfigurationController(environment.client);
       providerDirectoryController.current = providers;
@@ -1119,6 +1121,7 @@ export function AxlApp({ preview }: { readonly preview?: WebPreview } = {}): Rea
       setNewSessionDraft(newSessionController.current.reset("chat"));
     } catch (cause) {
       setNewSessionError(cause instanceof Error ? cause.message : "Could not create a session");
+    } finally {
       setLifecycleBusy(false);
     }
   };

@@ -25,7 +25,7 @@ import { AxlClientError, type TrustedProviderHost } from "@axl/sdk";
 import { connectUnixClient } from "@axl/sdk/unix";
 import { type WebSocket, WebSocketServer } from "ws";
 
-import type { LoungeStorage } from "./lounge-storage.ts";
+import { DEFAULT_LOUNGE_SETTINGS, type LoungeStorage } from "./lounge-storage.ts";
 
 const SECURITY_HEADERS = {
   "cache-control": "no-store",
@@ -616,7 +616,15 @@ export async function startWebGateway(options: WebGatewayOptions): Promise<WebGa
             preferences,
             ...(options.lounge === undefined
               ? {}
-              : { lounge: { settings: await options.lounge.loadSettings() } }),
+              : {
+                  lounge: await options.lounge.loadSettings().then(
+                    (settings) => ({ settings }),
+                    (error: unknown) => ({
+                      settings: DEFAULT_LOUNGE_SETTINGS,
+                      error: error instanceof Error ? error.message : String(error),
+                    }),
+                  ),
+                }),
             hostCapabilities: [
               "project.folder.validate",
               ...(options.providerHost === undefined ? [] : ["provider.auth.login"]),

@@ -811,6 +811,56 @@ test("the gateway exchanges one launch token and authenticates one daemon bridge
   assert.ok(performance.now() - stalledAt >= 4_000);
 });
 
+test("a damaged Lounge settings file does not stop the web bootstrap", async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), "axl-web-lounge-bad-"));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const html = '<div id="root"></div>';
+  await writeFile(join(directory, "index.html"), html);
+  await writeFile(
+    join(directory, "asset-metadata.json"),
+    JSON.stringify({
+      webAssetVersion: 1,
+      packageVersion: "0.0.0-test",
+      sourceRevision: "fixture",
+      wireVersion: WIRE_PROTOCOL_VERSION,
+      entrypoints: ["index.html"],
+      sha256: { "index.html": createHash("sha256").update(html).digest("hex") },
+    }),
+  );
+  const loungeDirectory = join(directory, "lounge");
+  await mkdir(loungeDirectory, { recursive: true, mode: 0o700 });
+  await writeFile(join(loungeDirectory, "settings.json"), "{not json", { mode: 0o600 });
+  const token = Buffer.alloc(32, 31);
+  const gateway = await startWebGateway({
+    socketPath: join(directory, "unused.sock"),
+    assetDirectory: directory,
+    stateDirectory: directory,
+    cwd: "/workspace",
+    packageVersion: "0.0.0-test",
+    launchToken: token,
+    pathToken: Buffer.alloc(16, 31),
+    lounge: new LoungeStorage(loungeDirectory),
+  });
+  context.after(() => gateway.close());
+  const origin = new URL(gateway.origin).origin;
+  const exchange = await fetch(new URL("auth/exchange", gateway.origin), {
+    method: "POST",
+    headers: { origin, "content-type": "application/json" },
+    body: JSON.stringify({ token: token.toString("base64url") }),
+  });
+  const cookie = exchange.headers.get("set-cookie")?.split(";", 1)[0] ?? "";
+  const response = await fetch(new URL("bootstrap", gateway.origin), {
+    method: "POST",
+    headers: { origin, cookie, "content-type": "application/json" },
+    body: "{}",
+  });
+  assert.equal(response.status, 200);
+  const lounge = ((await response.json()) as { lounge: { settings: unknown; error?: string } })
+    .lounge;
+  assert.deepEqual(lounge.settings, { version: 1, reducedMotion: false, textOnly: false });
+  assert.equal(typeof lounge.error, "string");
+});
+
 test("the gateway brokers Lounge saves and settings only when Lounge is enabled", async (context) => {
   const directory = await mkdtemp(join(tmpdir(), "axl-web-lounge-"));
   context.after(() => rm(directory, { recursive: true, force: true }));

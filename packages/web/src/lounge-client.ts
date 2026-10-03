@@ -52,16 +52,23 @@ async function post(path: string, body: unknown, signal?: AbortSignal): Promise<
     body: JSON.stringify(body),
     ...(signal === undefined ? {} : { signal }),
   });
-  if (response.status === 422) {
-    const failure = (await response.json()) as { code?: unknown; message?: unknown };
-    if (
-      typeof failure.message === "string" &&
-      STORAGE_ERROR_CODES.includes(failure.code as ActivityStorageErrorCode)
-    )
-      throw new ActivityStorageError(failure.code as ActivityStorageErrorCode, failure.message);
+  if (!response.ok) {
+    const text = await response.text();
+    if (response.status === 422) {
+      let failure: { code?: unknown; message?: unknown } | undefined;
+      try {
+        failure = JSON.parse(text) as typeof failure;
+      } catch {
+        failure = undefined;
+      }
+      if (
+        typeof failure?.message === "string" &&
+        STORAGE_ERROR_CODES.includes(failure.code as ActivityStorageErrorCode)
+      )
+        throw new ActivityStorageError(failure.code as ActivityStorageErrorCode, failure.message);
+    }
+    throw new Error(text || `Lounge request failed (${response.status})`);
   }
-  if (!response.ok)
-    throw new Error((await response.text()) || `Lounge request failed (${response.status})`);
   return response.json();
 }
 
