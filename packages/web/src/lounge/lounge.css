@@ -79,6 +79,9 @@
 .art-multi div { display: grid; grid-template-columns: repeat(5, 5px); gap: 1.5px; }
 .art-multi i { width: 5px; height: 5px; border-radius: 1px; background: var(--lg-line); }
 .art-multi i.exact { background: var(--lg-correct); } .art-multi i.present { background: var(--lg-present); }
+.art-hive { position: relative; width: 100%; }
+.art-hive i { position: absolute; top: calc(50% - 15px); left: calc(50% - 13px); display: grid; width: 26px; height: 30px; place-items: center; background: color-mix(in srgb, var(--text) 16%, var(--raised)); font-size: 12px; font-style: normal; font-weight: 750; clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); transform: rotate(var(--a, 0deg)) translateX(28px) rotate(calc(var(--a, 0deg) * -1)); text-transform: uppercase; }
+.art-hive i.center { background: var(--accent); color: #fff; transform: none; }
 .art-2048 { grid-template-columns: repeat(2, 42px); gap: 5px; align-content: center; }
 .art-2048 .g2048-tile { width: 42px; height: 42px; font-size: 17px; }
 .art-mines { grid-template-columns: repeat(4, 24px); gap: 2px; align-content: center; }
@@ -335,3 +338,33 @@
 .mw-seg i.exact { background: var(--lg-correct); }
 .mw-seg i.present { background: var(--lg-present); }
 .mw-seg i.absent { background: color-mix(in srgb, #000 55%, var(--lg-absent)); }
+
+/* ---------- Honeycomb ---------- */
+.hc-rank { flex: none; padding: 4px 18px 0; }
+.hc-rank-line { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 13px; }
+.hc-rank-line strong { font-size: 14px; font-weight: 700; }
+.hc-rank-line span { color: var(--muted); font-size: 12px; }
+.hc-track { position: relative; height: 6px; margin-top: 8px; border-radius: 3px; background: color-mix(in srgb, var(--text) 12%, transparent); }
+.hc-track i { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 3px; background: var(--accent); transition: width 240ms var(--ease-out); }
+.hc-track b { position: absolute; top: -2px; width: 2px; height: 10px; margin-left: -1px; background: var(--bg); }
+.hc-fit { flex-direction: row; flex-wrap: wrap; align-items: safe center; justify-content: center; gap: 12px 28px; padding: 10px 16px; overflow: auto; }
+.hc-play { display: grid; flex: 0 0 auto; justify-items: center; gap: 14px; }
+.hc-word { display: flex; min-height: 40px; align-items: center; justify-content: center; gap: 2px; font-size: 28px; font-weight: 750; letter-spacing: 0.04em; }
+.hc-word.shake { animation: lg-shake 380ms; }
+.hc-word .core { color: var(--accent-strong); }
+.hc-hint { color: var(--muted); font-size: 14px; font-weight: 500; letter-spacing: 0; }
+.hc-hive { --hive: min(300px, calc(100cqw - 32px), calc(100cqh - 150px)); position: relative; width: var(--hive); height: calc(var(--hive) * 0.958); }
+.hc-cell { position: absolute; padding: 0; border: 0; background: color-mix(in srgb, var(--text) 16%, var(--raised)); color: var(--text); font-size: calc(var(--hive) * 0.1); font-weight: 750; clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); cursor: pointer; transition: background var(--fast), transform 90ms; }
+.hc-cell:hover { background: color-mix(in srgb, var(--text) 24%, var(--raised)); }
+.hc-cell:active { transform: scale(0.94); }
+.hc-cell.center { background: var(--accent); color: #fff; }
+.hc-cell.center:hover { background: color-mix(in srgb, var(--accent) 86%, #fff); }
+.hc-actions { display: flex; gap: 8px; }
+.lg-tool.strong { border-color: var(--accent); background: var(--accent); color: #fff; }
+.lg-tool.strong:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 86%, #fff); color: #fff; }
+.hc-found { display: grid; flex: 1 1 180px; max-width: 300px; min-height: 0; max-height: 100%; align-content: start; gap: 8px; }
+.hc-found h3 { margin: 0; color: var(--muted); font-size: 11px; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; }
+.hc-found ul { display: grid; max-height: 280px; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 2px 12px; margin: 0; padding: 0; overflow: auto; list-style: none; font-size: 14px; }
+.hc-found li { padding: 2px 0; border-bottom: 1px solid var(--line-soft); }
+.hc-found li.pangram { color: var(--accent-strong); font-weight: 700; }
+.lg-honeycomb .lg-toast-slot { top: 142px; }

@@ -19,6 +19,8 @@ Axl's generated model catalog includes factual metadata derived from models.dev,
 
 Axl's Codeword dictionaries are transformed from the English Speller Database (ESDB, formerly SCOWLv2) release rel-2026.02.25 at commit 7e99edab8e32f9f9ea2b15f249ca8d4d67237410. ESDB is Copyright 2000-2026 by Kevin Atkinson and is distributed under the permissive terms in LICENSES/LicenseRef-ESDB.txt.
 
+Axl's Honeycomb word list is transformed from the same ESDB release and commit as the Codeword dictionaries. The list, its review exclusions, and its provenance are in packages/extensions/lounge/data/honeycomb. ESDB is Copyright 2000-2026 by Kevin Atkinson and is distributed under the permissive terms in LICENSES/LicenseRef-ESDB.txt.
+
 Axl's Chess puzzle subset is transformed from the official Lichess puzzle database snapshot reported for 2026-09-10 and retrieved from https://database.lichess.org/. Lichess database exports are dedicated to the public domain under CC0 1.0; the legal text is in LICENSES/CC0-1.0.txt.
 
 Axl uses `@deepseek-ai/node-addon-landlock-run` 0.1.1 from DeepSeek Harness.

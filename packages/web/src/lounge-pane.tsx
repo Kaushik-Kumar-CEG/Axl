@@ -12,6 +12,8 @@ import type { LoungeSettings } from "./lounge-client.ts";
 interface Game {
   readonly id: string;
   readonly name: string;
+  /** Shorter label for the tab strip. */
+  readonly tab?: string;
   readonly blurb: string;
   readonly Component: ComponentType<GameProps>;
 }
@@ -22,6 +24,12 @@ const GAMES: readonly Game[] = [
     name: "Wordle",
     blurb: "Find the hidden five-letter word in six tries.",
     Component: lazy(() => import("./lounge/wordle.tsx")),
+  },
+  {
+    id: "axl.lounge.honeycomb",
+    name: "Honeycomb",
+    blurb: "Make words from seven letters. Find the one that uses them all.",
+    Component: lazy(() => import("./lounge/honeycomb.tsx")),
   },
   {
     id: "axl.lounge.multiword",
@@ -50,6 +58,7 @@ const GAMES: readonly Game[] = [
   {
     id: "axl.lounge.chess-puzzles",
     name: "Chess puzzles",
+    tab: "Chess",
     blurb: "Find the winning move in real tactical positions.",
     Component: lazy(() => import("./lounge/chess.tsx")),
   },
@@ -112,7 +121,7 @@ export function LoungePane({
               aria-current={game.id === activeId ? "page" : undefined}
               onClick={() => choose(game.id)}
             >
-              {game.name}
+              {game.tab ?? game.name}
             </button>
           ))}
         </nav>

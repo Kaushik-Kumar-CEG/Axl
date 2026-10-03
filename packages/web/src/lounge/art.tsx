@@ -21,6 +21,17 @@ export function GameArt({ id }: { readonly id: string }): React.JSX.Element {
         ))}
       </div>
     );
+  if (id === "axl.lounge.honeycomb")
+    return (
+      <div className="art art-hive" aria-hidden="true">
+        {["a", "r", "t", "e", "n", "l"].map((letter, index) => (
+          <i key={letter} style={{ "--a": `${index * 60}deg` } as React.CSSProperties}>
+            {letter}
+          </i>
+        ))}
+        <i className="center">o</i>
+      </div>
+    );
   if (id === "axl.lounge.multiword")
     return (
       <div className="art art-multi" aria-hidden="true">

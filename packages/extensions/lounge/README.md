@@ -3,7 +3,7 @@
 
 # Axl Lounge extension
 
-This package owns first-party Lounge activities. It contains deterministic Wordle, Multiword, 2048, Minesweeper, Sudoku, and Chess Puzzle rule engines and exposes all six games through the public extension API. Wordle uses reviewed offline dictionaries. Its internal identifiers retain `codeword` for save compatibility.
+This package owns first-party Lounge activities. It contains deterministic Wordle, Multiword, Honeycomb, 2048, Minesweeper, Sudoku, and Chess Puzzle rule engines and exposes all seven games through the public extension API. Wordle uses reviewed offline dictionaries. Its internal identifiers retain `codeword` for save compatibility.
 
 The engine exports immutable state reducers, duplicate-aware scoring, normal and hard mode validation, six-attempt completion, restart behavior, and versioned daily and practice selection. Callers supply the UTC puzzle date or practice seed. The engine never reads the system clock or global randomness. The activity renders semantic frames and owns only game-local input, help, mode selection, restart confirmation, and bounded activity-storage state.
 

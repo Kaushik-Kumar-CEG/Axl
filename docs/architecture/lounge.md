@@ -7,7 +7,7 @@ Status: implemented terminal and web client feature
 
 ## Scope
 
-Axl Lounge provides six offline games for the terminal and web clients: Wordle, Multiword, 2048, Minesweeper, Sudoku, and Chess Puzzles. The Lounge package contains deterministic game rules and semantic activity renderers. It uses only the public `terminal.activities` and `terminal.activity-storage` extension capabilities.
+Axl Lounge provides seven offline games for the terminal and web clients: Wordle, Multiword, Honeycomb, 2048, Minesweeper, Sudoku, and Chess Puzzles. The Lounge package contains deterministic game rules and semantic activity renderers. It uses only the public `terminal.activities` and `terminal.activity-storage` extension capabilities.
 
 ## Authority and ownership
 
@@ -53,12 +53,13 @@ Disabling or disposing Lounge removes registrations, listeners, timers, queued c
 
 - **Wordle:** reviewed offline dictionaries, duplicate-aware scoring, normal and hard modes, deterministic daily and practice selection, and six attempts.
 - **Multiword:** two, four, or eight Wordle boards that score every guess at once, with 7, 9, or 13 attempts. Answers are distinct and chosen deterministically for Daily and Practice, solved boards stop, and the shared keyboard shows the evidence for each board. It reuses the Wordle dictionary and scoring, and saves by replaying guesses. The terminal activity fits an even grid of boards to the viewport and reports the size it needs when the terminal is too small.
+- **Honeycomb:** seven letters with a required center letter, words of four letters or more, letters may repeat, one point for four letters, the length otherwise, and a seven point bonus for using every letter. A word list of about 36,800 reviewed words is the only list, so every accepted word has been through the same review. The 1,000 puzzles are derived at generation time from the list (25 to 70 words, one to three pangrams, no `s`), and ranks follow the share of the maximum score. The web client draws a hex hive. The terminal activity draws the hive as text. Saves replay the found words and keep a per-puzzle history.
 - **2048:** deterministic spawning, one merge per tile per move, exact one-move undo, win continuation, and game-over detection.
 - **Minesweeper:** delayed deterministic placement, safe first reveal and neighbors, three presets, flags, chords, viewport navigation, mouse input, and active-play timing.
 - **Sudoku:** twelve versioned unique-solution puzzles, three difficulties, notes, conflicts, hints, undo, and a traditional grid with strong 3×3 separators.
 - **Chess Puzzles:** 1,000 reviewed Lichess tactics, immutable legal move validation, deterministic Daily and Practice selection, exact sourced-line progression, keyboard and mouse controls, progressive hints, explicit promotion choice, and bounded statistics.
 
-Word data provenance and verification are documented in [`../../packages/extensions/lounge/data/codeword/README.md`](../../packages/extensions/lounge/data/codeword/README.md). Sudoku fixture generation is documented in [`../../packages/extensions/lounge/data/sudoku/README.md`](../../packages/extensions/lounge/data/sudoku/README.md). Chess source, review, licensing, and reproducible generation are documented in [`../../packages/extensions/lounge/data/chess/README.md`](../../packages/extensions/lounge/data/chess/README.md).
+Honeycomb word data is documented in [`../../packages/extensions/lounge/data/honeycomb/README.md`](../../packages/extensions/lounge/data/honeycomb/README.md). Word data provenance and verification are documented in [`../../packages/extensions/lounge/data/codeword/README.md`](../../packages/extensions/lounge/data/codeword/README.md). Sudoku fixture generation is documented in [`../../packages/extensions/lounge/data/sudoku/README.md`](../../packages/extensions/lounge/data/sudoku/README.md). Chess source, review, licensing, and reproducible generation are documented in [`../../packages/extensions/lounge/data/chess/README.md`](../../packages/extensions/lounge/data/chess/README.md).
 
 ## Verification
 
