@@ -207,7 +207,7 @@ export function makeCapabilitySearchTool(service: CapabilityService): KernelTool
   return {
     name: "capability_search",
     description:
-      "Search for optional authorized Skills or tools, activate selected results for the rest of the session, and read resources from active capabilities. Search before answering requests for abilities not already exposed, especially user-interface slash commands, and never pass slash commands to bash.",
+      "Search for optional authorized Skills or tools, activate selected results for the rest of the session, and read resources from active capabilities. Use it only when the user asks for an ability that is not already exposed, such as a named Skill or a user-interface slash command, never for ordinary conversation or help requests. Never pass slash commands to bash.",
     inputSchema: {
       type: "object",
       oneOf: [

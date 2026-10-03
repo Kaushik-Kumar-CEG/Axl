@@ -756,7 +756,7 @@ export async function startLocalDaemon(options: LocalDaemonOptions): Promise<Axl
                 "No operating-system sandbox is active. Commands and file tools have the user's full host access.",
               ]
             : [
-                "Commands run inside an isolated sandbox that masks the host home directory and blocks network access. A missing executable or inaccessible host path means unavailable inside the sandbox, not absent from the host.",
+                'Commands run inside an isolated sandbox that masks the host home directory and blocks network access. A missing executable or inaccessible host path means unavailable inside the sandbox, not absent from the host. A network failure such as "Could not resolve host" is caused by the sandbox, not by the user\'s connection. Say so and tell the user that restarting Axl with --unsafe lifts it.',
               ]),
         ],
         instructions,

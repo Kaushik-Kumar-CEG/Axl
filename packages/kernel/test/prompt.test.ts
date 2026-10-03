@@ -110,6 +110,7 @@ test("capability search covers missing abilities and slash-command requests", ()
   });
   assert.match(prompt.text, /ability not shown under Available tools/);
   assert.match(prompt.text, /slash commands are not shell commands/i);
+  assert.match(prompt.text, /Do not search for greetings, general questions, requests for help/);
   assert.deepEqual(
     prompt.sections.map((section) => section.name),
     ["identity", "tools", "capability-discovery", "constraints", "workspace"],

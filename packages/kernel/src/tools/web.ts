@@ -347,7 +347,9 @@ export function makeWebFetchTool(options: { readonly request?: WebRequest } = {}
       );
       const parsed = parsePublicUrl(url);
       if (parsed.hostname === "github.com") {
-        throw new ToolInputError("web_fetch: use bash and git for GitHub repositories");
+        throw new ToolInputError(
+          "web_fetch: github.com is not fetched here. Use git or gh in bash. A sandboxed bash has no network, so tell the user to restart Axl with --unsafe if the sandbox blocks them.",
+        );
       }
       const response = await request(parsed.toString(), { signal });
       if (response.status < 200 || response.status >= 300) {
